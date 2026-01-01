@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Settings • IntelX Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --card: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --brand: #3b82f6;
+      --border: #374151;
+      --input: #0b1220;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+    }
+    header {
+      background: linear-gradient(90deg, #0ea5e9, #3b82f6);
+      padding: 18px 24px; color: white; box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    }
+    header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
+    header .meta { font-size: 12px; opacity: .9; margin-top: 6px; }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .panel {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; margin-bottom: 16px;
+    }
+    .section-title { margin: 0 0 12px 0; font-size: 16px; }
+    .row { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; align-items: center; margin-bottom: 12px; }
+    label { color: var(--muted); font-size: 13px; }
+    input, select, textarea {
+      width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--input); color: var(--text); font-size: 14px;
+    }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .status-pill { display: inline-block; font-size: 12px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); margin-left: 8px;}
+    .status-pill.ok { border-color: rgba(34,197,94,.35); color: var(--accent); }
+    .status-pill.missing { border-color: rgba(239,68,68,.35); color: var(--danger); }
+
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn {
+      padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--card); color: var(--text); cursor: pointer; font-size: 14px;
+    }
+    .btn.primary { background: var(--brand); border-color: #1e40af; }
+    .btn.danger { background: #7f1d1d; border-color: #991b1b; }
+    .msg { margin-top: 10px; font-size: 13px; display: none; }
+    .msg.ok { color: var(--accent); }
+    .msg.err { color: var(--danger); }
+    .nav { margin-bottom: 16px; }
+    .nav a { color: #93c5fd; text-decoration: none; margin-right: 10px; }
+    .nav a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Settings</h1>
+    <div class="meta">Configure IntelX API key and notification provider (Teams, Slack, Telegram)</div>
+  </header>
+
+  <div class="container">
+    <div class="nav">
+      <a href="/dashboard">&#8592; Back to Dashboard</a>
+    </div>
+
+    <div class="panel">
+      <h2 class="section-title">Notification Provider</h2>
+      <div class="row">
+        <label for="notify_provider">Provider</label>
+        <div>
+          <select id="notify_provider">
+            <option value="none">None (disabled)</option>
+            <option value="teams">Microsoft Teams</option>
+            <option value="slack">Slack</option>
+            <option value="telegram">Telegram</option>
+          </select>
+          <span id="provider_status" class="status-pill">Unknown</span>
+          <div class="hint">Choose the channel to receive alerts after scans complete.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="section-title">IntelX API</h2>
+      <div class="row">
+        <label for="intelx_api_key">IntelX API Key</label>
+        <div>
+          <input id="intelx_api_key" type="password" placeholder="Enter IntelX API key" />
+          <span id="intelx_status" class="status-pill">Unknown</span>
+          <div class="hint">This overrides INTELX_KEY env var if set here. Leave empty to keep current or clear to remove.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="section-title">Microsoft Teams</h2>
+      <div class="row">
+        <label for="teams_webhook_url">Teams Webhook URL</label>
+        <div>
+          <input id="teams_webhook_url" type="password" placeholder="https://outlook.office.com/webhook/..." />
+          <span id="teams_status" class="status-pill">Unknown</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="section-title">Slack</h2>
+      <div class="row">
+        <label for="slack_webhook_url">Slack Incoming Webhook URL</label>
+        <div>
+          <input id="slack_webhook_url" type="password" placeholder="https://hooks.slack.com/services/..." />
+          <span id="slack_status" class="status-pill">Unknown</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="section-title">Telegram</h2>
+      <div class="row">
+        <label for="telegram_bot_token">Bot Token</label>
+        <div>
+          <input id="telegram_bot_token" type="password" placeholder="e.g., 123456:ABC-DEF..." />
+          <span id="tg_token_status" class="status-pill">Unknown</span>
+        </div>
+      </div>
+      <div class="row">
+        <label for="telegram_chat_id">Chat ID</label>
+        <div>
+          <input id="telegram_chat_id" type="text" placeholder="@channel or numeric chat id" />
+          <span id="tg_chat_status" class="status-pill">Unknown</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn primary" id="save_btn">Save Settings</button>
+      <button class="btn" id="reload_btn">Reload</button>
+    </div>
+    <div class="msg" id="msg_box"></div>
+  </div>
+
+  <script>
+    const msgBox = document.getElementById('msg_box');
+    const setMsg = (text, ok=true) => {
+      msgBox.textContent = text;
+      msgBox.className = 'msg ' + (ok ? 'ok' : 'err');
+      msgBox.style.display = 'block';
+    };
+    const setStatus = (el, ok, labelTrue='Set', labelFalse='Missing') => {
+      el.textContent = ok ? labelTrue : labelFalse;
+      el.className = 'status-pill ' + (ok ? 'ok' : 'missing');
+    };
+
+    async function reloadSettings() {
+      msgBox.style.display = 'none';
+      try {
+        const resp = await fetch('/api/settings/');
+        if (!resp.ok) throw new Error('Failed to load settings');
+        const data = await resp.json();
+
+        // Masked booleans
+        setStatus(document.getElementById('intelx_status'), data.has_intelx_api_key);
+        setStatus(document.getElementById('teams_status'), data.has_teams_webhook_url);
+        setStatus(document.getElementById('slack_status'), data.has_slack_webhook_url);
+        setStatus(document.getElementById('tg_token_status'), data.has_telegram_bot_token);
+        setStatus(document.getElementById('tg_chat_status'), data.has_telegram_chat_id);
+
+        // Provider indicator
+        const providerSel = document.getElementById('notify_provider');
+        providerSel.value = data.notify_provider || 'none';
+        const providerStatus = document.getElementById('provider_status');
+        providerStatus.textContent = (data.notify_provider || 'none').toUpperCase();
+        providerStatus.className = 'status-pill ' + (data.notify_provider && data.notify_provider !== 'none' ? 'ok' : 'missing');
+
+        // Do not populate secrets (only masked status)
+        document.getElementById('intelx_api_key').value = '';
+        document.getElementById('teams_webhook_url').value = '';
+        document.getElementById('slack_webhook_url').value = '';
+        document.getElementById('telegram_bot_token').value = '';
+        document.getElementById('telegram_chat_id').value = '';
+      } catch (e) {
+        setMsg('Error loading settings: ' + e.message, false);
+      }
+    }
+
+    async function saveSettings() {
+      msgBox.style.display = 'none';
+      const payload = {};
+
+      // Provider
+      payload.notify_provider = document.getElementById('notify_provider').value;
+
+      // Secrets: if non-empty, update; if empty, leave unchanged (no-op)
+      const intelx = document.getElementById('intelx_api_key').value.trim();
+      const teams = document.getElementById('teams_webhook_url').value.trim();
+      const slack = document.getElementById('slack_webhook_url').value.trim();
+      const tgToken = document.getElementById('telegram_bot_token').value.trim();
+      const tgChat = document.getElementById('telegram_chat_id').value.trim();
+
+      if (intelx !== '') payload.intelx_api_key = intelx;
+      if (teams !== '') payload.teams_webhook_url = teams;
+      if (slack !== '') payload.slack_webhook_url = slack;
+      if (tgToken !== '') payload.telegram_bot_token = tgToken;
+      if (tgChat !== '') payload.telegram_chat_id = tgChat;
+
+      try {
+        const resp = await fetch('/api/settings/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!resp.ok) {
+          const t = await resp.text();
+          throw new Error(t || 'Save failed');
+        }
+        setMsg('Settings saved.');
+        await reloadSettings();
+      } catch (e) {
+        setMsg('Error saving settings: ' + e.message, false);
+      }
+    }
+
+    document.getElementById('save_btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      saveSettings();
+    });
+    document.getElementById('reload_btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      reloadSettings();
+    });
+
+    reloadSettings();
+  </script>
+</body>
+</html>

@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>New Scan • IntelX Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --card:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --brand:#3b82f6; --accent:#22c55e; --warning:#f59e0b; --danger:#ef4444; --border:#374151; --input:#0b1220; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Arial; background: linear-gradient(180deg,#0b1220 0%,#0f172a 100%); color: var(--text); }
+    header { background: linear-gradient(90deg,#0ea5e9,#3b82f6); padding: 18px 24px; color: white; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
+    header .meta { font-size: 12px; opacity: .9; margin-top: 6px; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+    .nav { margin-bottom: 16px; }
+    .nav a { color: #93c5fd; text-decoration: none; margin-right: 10px; }
+    .nav a:hover { text-decoration: underline; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .section-title { margin: 0 0 12px 0; font-size: 16px; }
+    .row { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; align-items: center; margin-bottom: 12px; }
+    label { color: var(--muted); font-size: 13px; }
+    input, select { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 14px; }
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; font-size: 14px; }
+    .btn.primary { background: var(--brand); border-color: #1e40af; }
+    .btn.danger { background: #7f1d1d; border-color: #991b1b; }
+    .msg { margin-top: 10px; font-size: 13px; display: none; }
+    .msg.ok { color: var(--accent); }
+    .msg.warn { color: var(--warning); }
+    .msg.err { color: var(--danger); }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .pill { padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .status { margin-top: 10px; font-size: 13px; }
+    .status .badge { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid var(--border); font-size:12px; }
+    .badge.ok { border-color: rgba(34,197,94,.35); color: var(--accent); }
+    .badge.warn { border-color: rgba(245,158,11,.35); color: var(--warning); }
+    .badge.err { border-color: rgba(239,68,68,.35); color: var(--danger); }
+    .result { margin-top: 12px; font-size: 13px; color: var(--muted); }
+    .small { font-size: 12px; color: var(--muted); }
+    .collapse { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 8px; }
+    .collapse h3 { margin: 0 0 8px 0; font-size: 14px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>New Scan</h1>
+    <div class="meta">Set scan name, query, advanced options, and monitor job status</div>
+  </header>
+
+  <div class="container">
+    <div class="nav">
+      <a href="/dashboard">&#8592; Back to Dashboard</a>
+      <a href="/settings">Settings</a>
+      <a href="/scan-intelx">IntelX Scan (simple)</a>
+      <a href="/scan-file">File Scan (simple)</a>
+    </div>
+
+    <div class="grid">
+      <!-- IntelX Single / Multi -->
+      <div class="panel">
+        <h2 class="section-title">IntelX Scan</h2>
+        <div class="row">
+          <label for="name_ix">Scan Name</label>
+          <div>
+            <input id="name_ix" type="text" placeholder="e.g., Weekly Security Scan" />
+            <div class="hint">Human-readable label to identify the scan.</div>
+          </div>
+        </div>
+        <div class="row">
+          <label for="query_ix">Query</label>
+          <div>
+            <input id="query_ix" type="text" placeholder="domain/email (e.g., acmecorp.com or user@company.com)" />
+            <div class="hint">Search leaks.private for this domain or email.</div>
+          </div>
+        </div>
+
+        <div class="collapse">
+          <h3>Advanced Options</h3>
+          <div class="row">
+            <label for="time_ix">Time Filter</label>
+            <div>
+              <select id="time_ix">
+                <option value="">All time</option>
+                <option value="D1">D1 (Yesterday)</option>
+                <option value="D7">D7</option>
+                <option value="D30">D30</option>
+                <option value="W2">W2</option>
+                <option value="M1">M1</option>
+                <option value="M3">M3</option>
+                <option value="M6">M6</option>
+                <option value="Y1">Y1</option>
+              </select>
+              <div class="hint">Limit search to recent ranges.</div>
+            </div>
+          </div>
+          <div class="row">
+            <label for="max_ix">Max Results</label>
+            <div><input id="max_ix" type="number" value="100" min="1" max="1000" /></div>
+          </div>
+          <div class="row">
+            <label for="limit_ix">Display Limit</label>
+            <div><input id="limit_ix" type="number" value="10" min="1" max="100" /></div>
+          </div>
+          <div class="row">
+            <label for="alert_ix">Send Alert</label>
+            <div><input id="alert_ix" type="checkbox" /> <span class="pill">Uses provider from Settings</span></div>
+          </div>
+          <div class="small">Results will be deduplicated and timestamped; dashboard shows top domains and admin counts.</div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="start_ix_btn">Start IntelX Scan</button>
+        </div>
+        <div class="msg" id="msg_ix"></div>
+        <div class="status" id="status_ix"></div>
+        <div class="result" id="result_ix"></div>
+      </div>
+
+      <!-- File Scan -->
+      <div class="panel">
+        <h2 class="section-title">File Scan</h2>
+        <div class="row">
+          <label for="name_file">Scan Name</label>
+          <div>
+            <input id="name_file" type="text" placeholder="e.g., Archive Audit 2025-12" />
+            <div class="hint">Human-readable label to identify the scan.</div>
+          </div>
+        </div>
+        <div class="row">
+          <label for="file_in">File</label>
+          <div>
+            <input id="file_in" type="file" />
+            <div class="hint">Supports .txt/.log/.csv and compressed archives (.zip/.tar.gz/.7z/.rar).</div>
+          </div>
+        </div>
+        <div class="collapse">
+          <h3>Advanced Options</h3>
+          <div class="row">
+            <label for="query_file">Query Filter</label>
+            <div>
+              <input id="query_file" type="text" placeholder="e.g., acmecorp.com (optional)" />
+              <div class="hint">If provided, only lines containing this keyword are considered.</div>
+            </div>
+          </div>
+          <div class="row">
+            <label for="alert_file">Send Alert</label>
+            <div><input id="alert_file" type="checkbox" /> <span class="pill">Uses provider from Settings</span></div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn primary" id="start_file_btn">Start File Scan</button>
+        </div>
+        <div class="msg" id="msg_file"></div>
+        <div class="status" id="status_file"></div>
+        <div class="result" id="result_file"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const showMsg = (el, text, type='ok') => { el.textContent = text; el.className = 'msg ' + type; el.style.display = 'block'; };
+    const updateStatus = (el, job) => {
+      if (!job) { el.innerHTML = ''; return; }
+      let badgeClass = 'badge';
+      if (job.status === 'completed') badgeClass += ' ok';
+      else if (job.status === 'running' || job.status === 'queued') badgeClass += ' warn';
+      else badgeClass += ' err';
+
+      const start = job.started_at ? new Date(job.started_at).toLocaleString() : '—';
+      const end = job.completed_at ? new Date(job.completed_at).toLocaleString() : '—';
+      const dur = job.duration_seconds != null ? (Math.round(job.duration_seconds) + 's') : '—';
+
+      el.innerHTML = `
+        <span class="${badgeClass}">${job.status.toUpperCase()}</span>
+        <div class="small">Started: ${start} • Completed: ${end} • Duration: ${dur}</div>
+        <div class="small">Raw: ${job.total_raw || 0} • Parsed: ${job.total_parsed || 0} • New: ${job.total_new || 0} • Duplicates: ${job.total_duplicates || 0}</div>
+        ${job.error_message ? '<div class="msg err">Error: ' + job.error_message + '</div>' : ''}
+      `;
+    };
+    const setResult = (el, jobId) => {
+      el.innerHTML = `Job <strong>${jobId}</strong> queued. 
+        Check <a href="/api/jobs/${jobId}" target="_blank">status</a> or view 
+        <a href="/api/results/job/${jobId}" target="_blank">results</a>.`;
+    };
+    const pollJob = async (jobId, statusEl, resultEl) => {
+      let interval = setInterval(async () => {
+        try {
+          const resp = await fetch('/api/jobs/' + jobId);
+          if (!resp.ok) return;
+          const job = await resp.json();
+          updateStatus(statusEl, job);
+          if (job.status === 'completed' || job.status === 'failed') {
+            clearInterval(interval);
+            setResult(resultEl, jobId);
+          }
+        } catch (_) {}
+      }, 2000);
+    };
+
+    async function startIntelXScan() {
+      const name = document.getElementById('name_ix').value.trim();
+      const query = document.getElementById('query_ix').value.trim();
+      const time_filter = document.getElementById('time_ix').value || null;
+      const max_results = parseInt(document.getElementById('max_ix').value, 10);
+      const display_limit = parseInt(document.getElementById('limit_ix').value, 10);
+      const send_alert = document.getElementById('alert_ix').checked;
+      const msg = document.getElementById('msg_ix');
+      const statusEl = document.getElementById('status_ix');
+      const resultEl = document.getElementById('result_ix');
+
+      msg.style.display = 'none'; statusEl.innerHTML=''; resultEl.innerHTML='';
+      if (!query) { showMsg(msg, 'Query is required', 'err'); return; }
+
+      const payload = { query, time_filter, max_results, display_limit, send_alert };
+      if (name) payload.name = name;
+
+      try {
+        const resp = await fetch('/api/scan/intelx/single', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const data = await resp.json();
+        showMsg(msg, 'Job queued: ' + data.job_id, 'ok');
+        updateStatus(statusEl, { status: 'queued' });
+        setResult(resultEl, data.job_id);
+        pollJob(data.job_id, statusEl, resultEl);
+      } catch (e) { showMsg(msg, 'Error: ' + e.message, 'err'); }
+    }
+
+    async function startFileScan() {
+      const name = document.getElementById('name_file').value.trim();
+      const file = document.getElementById('file_in').files[0];
+      const query = document.getElementById('query_file').value.trim();
+      const send_alert = document.getElementById('alert_file').checked;
+      const msg = document.getElementById('msg_file');
+      const statusEl = document.getElementById('status_file');
+      const resultEl = document.getElementById('result_file');
+
+      msg.style.display = 'none'; statusEl.innerHTML=''; resultEl.innerHTML='';
+      if (!file) { showMsg(msg, 'Please select a file to upload', 'err'); return; }
+
+      const form = new FormData();
+      form.append('file', file);
+      form.append('send_alert', send_alert);
+      if (query) form.append('query', query);
+      if (name) form.append('name', name);
+
+      try {
+        const resp = await fetch('/api/scan/file', { method: 'POST', body: form });
+        if (!resp.ok) throw new Error(await resp.text());
+        const data = await resp.json();
+        showMsg(msg, 'Job queued: ' + data.job_id, 'ok');
+        updateStatus(statusEl, { status: 'queued' });
+        setResult(resultEl, data.job_id);
+        pollJob(data.job_id, statusEl, resultEl);
+      } catch (e) { showMsg(msg, 'Error: ' + e.message, 'err'); }
+    }
+
+    document.getElementById('start_ix_btn').addEventListener('click', (e) => { e.preventDefault(); startIntelXScan(); });
+    document.getElementById('start_file_btn').addEventListener('click', (e) => { e.preventDefault(); startFileScan(); });
+  </script>
+</body>
+</html>

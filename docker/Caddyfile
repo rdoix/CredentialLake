@@ -1,0 +1,41 @@
+{
+	# Optional email for ACME when using a real domain (not needed for internal CA)
+	# email {$ACME_EMAIL}
+	# Enable minimal logging
+	admin off
+
+	# Non-standard ports: tell Caddy which ports to use for HTTP/HTTPS
+	https_port 8443
+	http_port 8080
+}
+
+localhost:8443 {
+	# Use Caddy's internal CA for local development (self-signed).
+	# Browsers will warn unless you trust Caddy’s root CA on your machine.
+	tls {
+		issuer internal
+		# Ensure compatibility with clients using LibreSSL/OpenSSL
+		protocols tls1.2 tls1.3
+	}
+
+	# Access logs for debugging
+	log {
+		output stdout
+		format console
+	}
+
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer-when-downgrade"
+	}
+
+	# Compression
+	encode gzip
+
+	# Reverse proxy to Next.js frontend service inside Docker
+	# All traffic is sent to the frontend (which already proxies /api internally via Next rewrites)
+	reverse_proxy frontend:3000
+}

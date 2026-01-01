@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>File Scan • IntelX Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --card:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --brand:#3b82f6; --border:#374151; --input:#0b1220; --accent:#22c55e; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Arial; background: linear-gradient(180deg,#0b1220 0%,#0f172a 100%); color: var(--text); }
+    header { background: linear-gradient(90deg,#0ea5e9,#3b82f6); padding: 18px 24px; color: white; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+    header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
+    header .meta { font-size: 12px; opacity: .9; margin-top: 6px; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .nav { margin-bottom: 16px; }
+    .nav a { color: #93c5fd; text-decoration: none; margin-right: 10px; }
+    .nav a:hover { text-decoration: underline; }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .section-title { margin: 0 0 12px 0; font-size: 16px; }
+    .row { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; align-items: center; margin-bottom: 12px; }
+    label { color: var(--muted); font-size: 13px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--input); color: var(--text); font-size: 14px; }
+    .actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); cursor: pointer; font-size: 14px; }
+    .btn.primary { background: var(--brand); border-color: #1e40af; }
+    .msg { margin-top: 10px; font-size: 13px; display: none; }
+    .msg.ok { color: var(--accent); }
+    .msg.err { color: #ef4444; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .result { margin-top: 12px; font-size: 13px; color: var(--muted); }
+    .pill { padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>File Scan</h1>
+    <div class="meta">Upload a local file or archive to parse credentials</div>
+  </header>
+
+  <div class="container">
+    <div class="nav">
+      <a href="/dashboard">&#8592; Back to Dashboard</a>
+      <a href="/settings">Settings</a>
+      <a href="/scan-intelx">IntelX Scan</a>
+    </div>
+
+    <div class="panel">
+      <h2 class="section-title">Upload File</h2>
+      <div class="row">
+        <label for="file_input">File</label>
+        <div>
+          <input id="file_input" type="file" />
+          <div class="hint">Supports .txt/.log/.csv and compressed archives (.zip/.tar.gz/.7z/.rar). Non-text files in archives are skipped.</div>
+        </div>
+      </div>
+      <div class="row">
+        <label for="query_input">Optional Query Filter</label>
+        <div>
+          <input id="query_input" type="text" placeholder="e.g., acmecorp.com" />
+          <div class="hint">If provided, only lines containing this keyword are considered.</div>
+        </div>
+      </div>
+      <div class="row">
+        <label for="alert_chk">Send Alert</label>
+        <div><input id="alert_chk" type="checkbox" /> <span class="pill">Uses provider from Settings</span></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="start_btn">Start File Scan</button>
+      </div>
+      <div class="msg" id="msg_box"></div>
+      <div class="result" id="result_box"></div>
+    </div>
+  </div>
+
+  <script>
+    const showMsg = (el, text, ok=true) => { el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); el.style.display = 'block'; };
+
+    async function startFileScan() {
+      const file = document.getElementById('file_input').files[0];
+      const query = document.getElementById('query_input').value.trim();
+      const send_alert = document.getElementById('alert_chk').checked;
+      const msg = document.getElementById('msg_box');
+      const result = document.getElementById('result_box');
+
+      msg.style.display = 'none'; result.textContent = '';
+      if (!file) { showMsg(msg, 'Please select a file to upload', false); return; }
+
+      const form = new FormData();
+      form.append('file', file);
+      if (query) form.append('query', query);
+      form.append('send_alert', send_alert);
+
+      try {
+        const resp = await fetch('/api/scan/file', { method: 'POST', body: form });
+        if (!resp.ok) throw new Error(await resp.text());
+        const data = await resp.json();
+        showMsg(msg, 'Job queued: ' + data.job_id);
+        result.innerHTML = 'Check <a href="/api/jobs/' + data.job_id + '" target="_blank">job status</a>.';
+      } catch (e) {
+        showMsg(msg, 'Error: ' + e.message, false);
+      }
+    }
+
+    document.getElementById('start_btn').addEventListener('click', (e) => { e.preventDefault(); startFileScan(); });
+  </script>
+</body>
+</html>

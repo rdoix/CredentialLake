@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>IntelX Scanner Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --card: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --brand: #3b82f6;
+      --border: #374151;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+      background: linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+    }
+    header {
+      background: linear-gradient(90deg, #0ea5e9, #3b82f6);
+      padding: 18px 24px; color: white; box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    }
+    header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
+    header .meta { font-size: 12px; opacity: .9; margin-top: 6px; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+
+    .panel {
+      grid-column: span 12;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+    }
+    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; min-height: 90px;
+    }
+    .card h3 { margin: 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .card .value { margin-top: 10px; font-size: 26px; font-weight: 700; }
+    .card .sub { margin-top: 4px; font-size: 12px; color: var(--muted); }
+
+    .table-wrap {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .table-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border); background: #0b1220;
+    }
+    .table-header h3 { margin: 0; font-size: 14px; letter-spacing: .2px; }
+    .table { width: 100%; border-collapse: collapse; }
+    .table th, .table td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .table th { text-align: left; color: var(--muted); font-weight: 600; }
+    .table tr:hover td { background: rgba(255,255,255,0.03); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+    .badge.admin { background: rgba(239, 68, 68, .15); color: var(--danger); border: 1px solid rgba(239,68,68,.3); }
+    .badge.ok { background: rgba(34,197,94,.15); color: var(--accent); border: 1px solid rgba(34,197,94,.3); }
+    .badge.warn { background: rgba(245,158,11,.15); color: var(--warning); border: 1px solid rgba(245,158,11,.3); }
+    .pill { padding: 3px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .footer { margin-top: 18px; color: var(--muted); font-size: 12px; text-align: center; }
+    a { color: #93c5fd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    @media (max-width: 900px) {
+      .cards { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>IntelX Scanner Dashboard</h1>
+    <div class="meta">Fast analytics • Deduplication • Admin detection • Timestamp tracking</div>
+  </header>
+
+  <div class="container">
+    <div class="panel">
+      <div class="cards">
+        <div class="card">
+          <h3>Total Credentials</h3>
+          <div class="value">{{ stats.total_credentials or 0 }}</div>
+          <div class="sub">Across all scans</div>
+        </div>
+        <div class="card">
+          <h3>Total Domains</h3>
+          <div class="value">{{ stats.total_domains or 0 }}</div>
+          <div class="sub">Unique domains discovered</div>
+        </div>
+        <div class="card">
+          <h3>Admin Credentials</h3>
+          <div class="value">{{ stats.admin_credentials or 0 }}</div>
+          <div class="sub">Detected via admin keyword rules</div>
+        </div>
+        <div class="card">
+          <h3>Recent Scans (24h)</h3>
+          <div class="value">{{ stats.recent_scans_24h or 0 }}</div>
+          <div class="sub">Jobs created in the last 24 hours</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel" style="grid-column: span 8;">
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Top Domains by Credentials</h3>
+            <span class="pill">Admin count included</span>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Domain</th>
+                <th>Total Credentials</th>
+                <th>Admin Count</th>
+                <th>First Seen</th>
+                <th>Last Seen</th>
+                <th>Total Occurrences</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if top_domains and top_domains|length > 0 %}
+                {% for d in top_domains %}
+                  <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><strong>{{ d.domain }}</strong></td>
+                    <td>{{ d.total_credentials }}</td>
+                    <td>
+                      {% if (d.admin_count or 0) > 0 %}
+                        <span class="badge admin">Admin: {{ d.admin_count }}</span>
+                      {% else %}
+                        <span class="badge ok">None</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ d.first_discovered or "—" }}</td>
+                    <td>{{ d.last_seen or "—" }}</td>
+                    <td>{{ d.total_occurrences or 0 }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="7" style="text-align:center; color: var(--muted);">No domains yet</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" style="grid-column: span 4;">
+        <div class="table-wrap">
+          <div class="table-header">
+            <h3>Recent Scans</h3>
+            <span class="pill"><a href="/api/jobs/">View all jobs</a></span>
+          </div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Type</th>
+                <th>New / Duplicates</th>
+                <th>Query</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if recent_scans and recent_scans|length > 0 %}
+                {% for j in recent_scans %}
+                  <tr>
+                    <td><a href="/api/jobs/{{ j.id }}">{{ j.name or (j.id[:8] ~ '…') }}</a></td>
+                    <td>
+                      {% if j.status == "completed" %}
+                        <span class="badge ok">Completed</span>
+                      {% elif j.status == "running" %}
+                        <span class="badge warn">Running</span>
+                      {% elif j.status == "failed" %}
+                        <span class="badge admin">Failed</span>
+                      {% else %}
+                        <span class="badge">Queued</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ j.job_type }}</td>
+                    <td>{{ j.total_new or 0 }} / {{ j.total_duplicates or 0 }}</td>
+                    <td>{{ j.query }}</td>
+                    <td>{{ j.created_at or "—" }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="4" style="text-align:center; color: var(--muted);">No recent scans</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+        <div class="footer">
+          Need to start a scan? Use API endpoints:
+          <a href="/api/scan/intelx/single">IntelX Single</a> •
+          <a href="/api/scan/intelx/multiple">IntelX Multi</a> •
+          <a href="/api/scan/file/">File Scan</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

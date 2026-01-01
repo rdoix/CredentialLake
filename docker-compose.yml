@@ -1,0 +1,208 @@
+services:
+  # Database for backend
+  postgres:
+    image: postgres:15
+    container_name: credlake_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: intelx_scanner
+      POSTGRES_USER: scanner
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-scanner}
+    # Port removed - internal access only via Docker network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scanner -d intelx_scanner"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - credleak_network
+
+  # Redis for job queue
+  redis:
+    image: redis:7-alpine
+    container_name: credlake_redis
+    restart: unless-stopped
+    # Port removed - internal access only via Docker network
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - credleak_network
+
+  # Elasticsearch for search analytics
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: credlake_elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    # Port removed - internal access only via Docker network
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - credleak_network
+
+  # FastAPI backend
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: credlake_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://scanner:${DB_PASSWORD:-scanner}@postgres:5432/intelx_scanner
+      REDIS_URL: redis://redis:6379/0
+      INTELX_KEY: ${INTELX_KEY:-}
+      TEAMS_WEBHOOK_URL: ${TEAMS_WEBHOOK_URL:-}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Port removed - internal access only via Docker network
+    volumes:
+      - ./logs:/app/logs
+      - ./exports:/app/exports
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - credleak_network
+
+  # Python worker for background jobs
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: credlake_worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://scanner:${DB_PASSWORD:-scanner}@postgres:5432/intelx_scanner
+      REDIS_URL: redis://redis:6379/0
+      INTELX_KEY: ${INTELX_KEY:-}
+      TEAMS_WEBHOOK_URL: ${TEAMS_WEBHOOK_URL:-}
+      PYTHONPATH: /app
+      # Enable container-level parallelism: number of RQ worker processes and queues
+      RQ_WORKERS: ${RQ_WORKERS:-5}
+      RQ_QUEUES: ${RQ_QUEUES:-default}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      - ./exports:/app/exports
+    networks:
+      - credleak_network
+
+  # NestJS gateway proxy and SSE
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: credlake_gateway
+    restart: unless-stopped
+    environment:
+      - BACKEND_BASE_URL=http://backend:8000
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_INDEX=intelx_data
+      - CORS_ORIGIN=https://localhost:8443
+      - PORT=3001
+    depends_on:
+      backend:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    # Port removed - internal access only via Docker network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - credleak_network
+
+  # Next.js frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: credlake_frontend
+    restart: unless-stopped
+    environment:
+      # Browser-only: use relative /api so Next.js on port 3000 proxies internally
+      - NEXT_PUBLIC_API_URL=/api
+      - NEXT_PUBLIC_GATEWAY_BASE_URL=/api
+      # Server-side (SSR): explicit internal URLs on Docker network
+      - GATEWAY_INTERNAL_URL=http://gateway:3001/api
+      - BACKEND_INTERNAL_AUTH_URL=http://backend:8000/api/auth
+    depends_on:
+      gateway:
+        condition: service_healthy
+    # Port not exposed; frontend is served behind TLS proxy on 8443
+    volumes:
+      - ./public:/app/public:ro
+    networks:
+      - credleak_network
+
+  # HTTPS TLS reverse proxy (Nginx) terminating TLS on 8443 and proxying to frontend:3000
+  proxy:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile.proxy
+    container_name: credlake_proxy
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      - nginx_ssl:/etc/nginx/ssl
+    depends_on:
+      frontend:
+        condition: service_started
+    networks:
+      - credleak_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  esdata:
+    driver: local
+  nginx_ssl:
+    driver: local
+
+networks:
+  credleak_network:
+    driver: bridge
+    name: credleak_network
