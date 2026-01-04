@@ -8,6 +8,7 @@ A comprehensive security tool designed to help organizations proactively monitor
 - 🔔 **Instant Alerts**: Get notified immediately when new leaks are discovered
 - 🗂️ **Centralized Management**: Store and manage all discovered credentials in one place
 - 🔐 **Security-First**: Built with security best practices and data protection in mind
+- 🛡️ **Vulnerability Intelligence (CVE)**: Sync CVEs from NVD, browse a searchable database, view severity distribution, and monitor recent vulnerabilities on the dashboard
 
 ## ⚠️ Legal Disclaimer
 
@@ -620,6 +621,10 @@ DB_PASSWORD=your_secure_password
 # IntelX API
 INTELX_KEY=your_api_key
 
+# Vulnerability Intelligence (NVD CVE API) - Optional
+# Increases rate limit from ~5 req/30s to 50 req/30s for faster syncs
+NVD_API_KEY=your_nvd_api_key
+
 # Security
 JWT_SECRET_KEY=generate_with_openssl_rand_hex_32
 
@@ -762,3 +767,34 @@ docker compose down -v && docker compose up -d --build
 ---
 
 **Ready to start?** Run `./setup.sh` and you'll be up in minutes! 🚀
+
+---
+
+## 🛡️ CVE Integration
+
+CredentialLake includes built-in vulnerability intelligence sourced from the National Vulnerability Database (NVD) API v2.0.
+
+- Data source: NVD CVE API v2.0 (deduplicated by CVE ID)
+- Sync options:
+  - Manual: Use the “Sync now” button on the Dashboard CVE Feed card
+  - Automatic: Daily at 02:00 WIB (Asia/Jakarta)
+  - With API key: 50 requests/30s, ~1s delay between pages, up to ~2000 CVEs per run
+  - Without API key: ~5 requests/30s, ~7s delay, ~300 CVEs per run
+- UI features:
+  - Dashboard CVE Feed: severity distribution, last 7 days count, 90-day totals, last sync time (Jakarta), and recent CVEs
+  - CVE Database page: keyword search, year filter, multi-severity selection (including UNASSIGNED), published date range, “Hide Rejected CVEs”, pagination (50/page), and rich details (CVSS v3/v2, CWE, references, affected products)
+- Setup (recommended):
+  1. Add your NVD API key via Settings → API Keys (or set NVD_API_KEY in `.env`)
+  2. Deploy services and login
+  3. Trigger the initial sync from the dashboard CVE card
+- API endpoints (via gateway):
+  - GET `/api/cve/stats`
+  - GET `/api/cve/recent?limit=10`
+  - GET `/api/cve/search?keyword=&year=&severity=&min_cvss=&max_cvss=&limit=&offset=&hide_rejected=`
+  - GET `/api/cve/year/:year?limit=&offset=`
+  - GET `/api/cve/severity/:severity?limit=&offset=`
+  - POST `/api/cve/sync?days=7`
+
+Notes:
+- NVD “rejected” entries are automatically filtered in many views and can be hidden in search.
+- Last sync time is shown in Asia/Jakarta timezone on the dashboard.
