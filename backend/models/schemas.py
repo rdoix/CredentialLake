@@ -233,3 +233,43 @@ class ScheduledJobResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# CVE schemas
+class CVEResponse(BaseModel):
+    """Response schema for CVE"""
+    id: int
+    cve_id: str
+    title: Optional[str] = None
+    description: str
+    is_rejected: Optional[bool] = None
+    published_date: datetime
+    last_modified_date: datetime
+    severity: Optional[str]
+    cvss_v3_score: Optional[float]
+    cvss_v3_vector: Optional[str]
+    cvss_v2_score: Optional[float]
+    cvss_v2_vector: Optional[str]
+    cwe_id: Optional[str]
+    references: Optional[str]
+    affected_products: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CVEListResponse(BaseModel):
+    """Paginated CVE list response"""
+    items: List[CVEResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class CVEStats(BaseModel):
+    """CVE statistics for dashboard"""
+    total: int
+    recent_7days: int
+    by_severity: dict

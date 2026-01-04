@@ -20,13 +20,19 @@ const SETTINGS_KEY = 'intelx_scanner_settings';
 const API_BASE_URL = getApiUrl();
 
 export default function Settings() {
-  const { isAdmin } = useUser();
+  const { isAdmin, token } = useUser();
   const confirm = useConfirm();
   const toast = useToast();
   const [settings, setSettings] = useState<SettingsType>(getDefaultSettings);
   const [activeTab, setActiveTab] = useState<Tab>('api-keys');
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const buildHeaders = (t: string | null): Record<string, string> => {
+    const h: Record<string, string> = { Accept: 'application/json' };
+    if (t) h.Authorization = `Bearer ${t}`;
+    return h;
+  };
 
   // Load settings from localStorage on mount
   useEffect(() => {
@@ -50,7 +56,7 @@ export default function Settings() {
     (async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/settings/`, {
-          headers: { Accept: 'application/json' },
+          headers: buildHeaders(token),
         });
         if (!res.ok) return;
         const data = await res.json();
@@ -60,6 +66,7 @@ export default function Settings() {
           ...prev,
           apiKeys: {
             intelx: data?.intelx_api_key ?? prev.apiKeys.intelx,
+            nvd: data?.nvd_api_key ?? prev.apiKeys.nvd,
             telegram: data?.telegram_bot_token ?? prev.apiKeys.telegram,
             slack: data?.slack_webhook_url ?? prev.apiKeys.slack,
             teams: data?.teams_webhook_url ?? prev.apiKeys.teams,
@@ -77,7 +84,7 @@ export default function Settings() {
         console.warn('Settings: failed to fetch backend settings', err);
       }
     })();
-  }, []);
+  }, [token]);
 
   const tabs = [
     { id: 'api-keys' as Tab, label: 'API Keys', icon: Key },
@@ -99,6 +106,7 @@ export default function Settings() {
       const { apiKeys, system } = settings;
 
       if (notMasked(apiKeys.intelx)) payload.intelx_api_key = apiKeys.intelx;
+      if (notMasked(apiKeys.nvd)) payload.nvd_api_key = apiKeys.nvd;
       if (notMasked(apiKeys.telegram)) payload.telegram_bot_token = apiKeys.telegram;
       if (notMasked(apiKeys.slack)) payload.slack_webhook_url = apiKeys.slack;
       if (notMasked(apiKeys.teams)) payload.teams_webhook_url = apiKeys.teams;
@@ -117,7 +125,7 @@ export default function Settings() {
       if (Object.keys(payload).length > 0) {
         const res = await fetch(`${API_BASE_URL}/settings/`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...buildHeaders(token) },
           body: JSON.stringify(payload),
         });
         if (!res.ok) {
@@ -133,7 +141,7 @@ export default function Settings() {
       // 3) Refresh masked values from backend into UI
       try {
         const res2 = await fetch(`${API_BASE_URL}/settings/`, {
-          headers: { Accept: 'application/json' },
+          headers: buildHeaders(token),
         });
         if (res2.ok) {
           const data2 = await res2.json();
@@ -143,6 +151,7 @@ export default function Settings() {
               ...prev,
               apiKeys: {
                 intelx: data2?.intelx_api_key ?? prev.apiKeys.intelx,
+                nvd: data2?.nvd_api_key ?? prev.apiKeys.nvd,
                 telegram: data2?.telegram_bot_token ?? prev.apiKeys.telegram,
                 slack: data2?.slack_webhook_url ?? prev.apiKeys.slack,
                 teams: data2?.teams_webhook_url ?? prev.apiKeys.teams,

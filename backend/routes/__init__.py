@@ -8,6 +8,7 @@ from backend.routes.settings import router as settings_router
 from backend.routes.organizations import router as organizations_router
 from backend.routes.scheduler import router as scheduler_router
 from backend.routes.auth import router as auth_router
+from backend.routes.cve import router as cve_router
 
 __all__ = [
     'dashboard_router',
@@ -18,5 +19,6 @@ __all__ = [
     'organizations_router',
     'settings_router',
     'scheduler_router',
-    'auth_router'
+    'auth_router',
+    'cve_router'
 ]

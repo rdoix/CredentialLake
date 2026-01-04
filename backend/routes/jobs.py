@@ -8,6 +8,8 @@ from backend.database import get_db
 from backend.models.scan_job import ScanJob
 from backend.models.schemas import JobResponse
 from backend.config import settings
+from backend.routes.auth import get_current_user, require_collector_or_admin
+from backend.models.user import User
 
 # RQ/Redis imports for queue interaction
 from redis import Redis
@@ -22,7 +24,8 @@ def list_jobs(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     status: Optional[str] = Query(None, description="Filter by status: queued|running|completed|failed|collecting|parsing|upserting|cancelling|cancelled"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """List all scan jobs with optional filtering"""
     query = db.query(ScanJob)
@@ -33,7 +36,11 @@ def list_jobs(
 
 
 @router.get("/{job_id}", response_model=JobResponse)
-def get_job(job_id: str, db: Session = Depends(get_db)):
+def get_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Get job details by ID"""
     job = db.query(ScanJob).filter(ScanJob.id == job_id).first()
     if not job:
@@ -42,7 +49,11 @@ def get_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{job_id}/cancel")
-def cancel_job(job_id: str, db: Session = Depends(get_db)):
+def cancel_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """
     Cancel a job if allowed.
     Policy:
@@ -109,7 +120,11 @@ def cancel_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{job_id}/pause")
-def pause_job(job_id: str, db: Session = Depends(get_db)):
+def pause_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """
     Pause a running job.
     Policy:
@@ -144,7 +159,11 @@ def pause_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{job_id}/resume")
-def resume_job(job_id: str, db: Session = Depends(get_db)):
+def resume_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """
     Resume a paused job.
     """
@@ -205,7 +224,11 @@ def resume_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{job_id}")
-def delete_job(job_id: str, db: Session = Depends(get_db)):
+def delete_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """Delete a specific job"""
     job = db.query(ScanJob).filter(ScanJob.id == job_id).first()
     if not job:
@@ -222,7 +245,10 @@ def delete_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/")
-def clear_all_jobs(db: Session = Depends(get_db)):
+def clear_all_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """Clear all jobs from database"""
     from backend.models.scan_job import JobCredential
 

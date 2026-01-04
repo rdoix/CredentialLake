@@ -33,7 +33,7 @@ def get_db() -> Generator[Session, None, None]:
 def init_db():
     """Initialize database tables by importing models"""
     # Import models to register metadata with Base before creating tables
-    from backend.models import credential, scan_job, settings, scheduled_job, user  # noqa: F401
+    from backend.models import credential, scan_job, settings, scheduled_job, user, cve  # noqa: F401
     Base.metadata.create_all(bind=engine)
     # Safe migration: ensure new columns exist for cancellation feature
     try:
@@ -54,3 +54,8 @@ def safe_migrate_scan_jobs():
         conn.execute(text("ALTER TABLE scan_jobs ADD COLUMN IF NOT EXISTS pause_requested BOOLEAN NOT NULL DEFAULT FALSE"))
         # IntelX time range persistence column
         conn.execute(text("ALTER TABLE scan_jobs ADD COLUMN IF NOT EXISTS time_filter VARCHAR(10)"))
+        # NVD API key column for CVE feature
+        conn.execute(text("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS nvd_api_key VARCHAR(512)"))
+        # Track last successful CVE sync time for incremental syncs and UI display
+        conn.execute(text("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS last_cve_sync_at TIMESTAMP"))
+        conn.commit()

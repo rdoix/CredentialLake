@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import { CredentialFilters } from '@/types/credential';
+import DateTimeRangePicker, { DateTimeRange } from '@/components/DateTimeRangePicker';
 
 interface FilterPanelProps {
   filters: CredentialFilters;
@@ -82,25 +83,22 @@ export default function FilterPanel({
           </select>
         </div>
 
-        {/* Date From */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Breach Date From</label>
-          <input
-            type="date"
-            value={filters.dateFrom || ''}
-            onChange={(e) => updateFilter('dateFrom', e.target.value || undefined)}
-            className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-
-        {/* Date To */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Breach Date To</label>
-          <input
-            type="date"
-            value={filters.dateTo || ''}
-            onChange={(e) => updateFilter('dateTo', e.target.value || undefined)}
-            className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        {/* Date Range Picker */}
+        <div className="lg:col-span-2">
+          <label className="block text-sm font-medium text-foreground mb-2">Breach Date Range</label>
+          <DateTimeRangePicker
+            value={{
+              from: filters.dateFrom,
+              to: filters.dateTo
+            }}
+            onChange={(range: DateTimeRange) => {
+              onFilterChange({
+                ...filters,
+                dateFrom: range.from,
+                dateTo: range.to
+              });
+            }}
+            placeholder="Select breach date range"
           />
         </div>
 

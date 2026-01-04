@@ -15,6 +15,8 @@ from backend.models.schemas import (
     TimeFilter,
 )
 from backend.services.scheduler_service import get_scheduler_service
+from backend.routes.auth import get_current_user, require_collector_or_admin
+from backend.models.user import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
@@ -104,14 +106,21 @@ def _to_response(sj: ScheduledJob, db: Session = None) -> ScheduledJobResponse:
 
 
 @router.get("/jobs", response_model=list[ScheduledJobResponse])
-def list_scheduled_jobs(db: Session = Depends(get_db)):
+def list_scheduled_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """List all scheduled jobs with stats."""
     jobs = db.query(ScheduledJob).order_by(ScheduledJob.created_at.desc()).all()
     return [_to_response(j, db) for j in jobs]
 
 
 @router.post("/jobs", response_model=ScheduledJobResponse)
-def create_scheduled_job(req: ScheduledJobRequest, db: Session = Depends(get_db)):
+def create_scheduled_job(
+    req: ScheduledJobRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """
     Create a scheduled job:
     - name, keywords (list), time_filter (D1/D7/D30 default D1)
@@ -159,7 +168,12 @@ def create_scheduled_job(req: ScheduledJobRequest, db: Session = Depends(get_db)
 
 
 @router.put("/jobs/{job_id}", response_model=ScheduledJobResponse)
-def update_scheduled_job(job_id: str, req: ScheduledJobRequest, db: Session = Depends(get_db)):
+def update_scheduled_job(
+    job_id: str,
+    req: ScheduledJobRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """
     Update an existing scheduled job:
     - name, keywords (list), time_filter (D1/D7/D30)
@@ -204,7 +218,11 @@ def update_scheduled_job(job_id: str, req: ScheduledJobRequest, db: Session = De
 
 
 @router.delete("/jobs/{job_id}")
-def delete_scheduled_job(job_id: str, db: Session = Depends(get_db)):
+def delete_scheduled_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """Delete a scheduled job and remove APS trigger."""
     try:
         job_uuid = uuid.UUID(job_id)
@@ -224,7 +242,10 @@ def delete_scheduled_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/jobs/{job_id}/run-now")
-def run_scheduled_job_now(job_id: str):
+def run_scheduled_job_now(
+    job_id: str,
+    current_user: User = Depends(require_collector_or_admin)
+):
     """Trigger a scheduled job immediately (enqueue scans for its keywords)."""
     try:
         uuid.UUID(job_id)
@@ -237,7 +258,11 @@ def run_scheduled_job_now(job_id: str):
 
 
 @router.post("/jobs/{job_id}/pause", response_model=ScheduledJobResponse)
-def pause_scheduled_job(job_id: str, db: Session = Depends(get_db)):
+def pause_scheduled_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """
     Pause a scheduled job:
     - Set is_active=False
@@ -276,7 +301,11 @@ def pause_scheduled_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/jobs/{job_id}/resume", response_model=ScheduledJobResponse)
-def resume_scheduled_job(job_id: str, db: Session = Depends(get_db)):
+def resume_scheduled_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """
     Resume a scheduled job:
     - Set is_active=True
@@ -311,7 +340,11 @@ def resume_scheduled_job(job_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/jobs/{job_id}/history")
-def get_scheduled_job_history(job_id: str, db: Session = Depends(get_db)):
+def get_scheduled_job_history(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Get run history for a scheduled job (last 20 runs)."""
     try:
         job_uuid = uuid.UUID(job_id)
@@ -337,7 +370,11 @@ def get_scheduled_job_history(job_id: str, db: Session = Depends(get_db)):
     }
 
 @router.get("/jobs/{job_id}/next-run")
-def get_next_run(job_id: str, db: Session = Depends(get_db)):
+def get_next_run(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Return the next run time for a scheduled job from both DB telemetry and APScheduler.
     Helps verify the job will trigger at the upcoming schedule.

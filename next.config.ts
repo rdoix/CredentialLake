@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
         source: '/api/auth/:path*',
         destination: 'http://backend:8000/api/auth/:path*',
       },
+      // Route CVE endpoints directly to backend FastAPI (avoid gateway 404/auth mismatch)
+      {
+        source: '/api/cve/:path*',
+        destination: 'http://backend:8000/api/cve/:path*',
+      },
       // Route settings to FastAPI backend (reads masked keys, saves keys and tunables)
       // Explicit routes to avoid 308 edge-cases with trailing slash normalization
       {

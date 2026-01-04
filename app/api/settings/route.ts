@@ -34,10 +34,16 @@ async function forwardToBackend(pathSuffix: string = '', init?: RequestInit) {
   });
 }
 
-export async function GET(_req: Request) {
+export async function GET(req: Request) {
   try {
+    // Preserve incoming Authorization header for backend auth
+    const auth = req.headers.get('authorization') || '';
+    const headers: Record<string, string> = {};
+    if (auth) headers['Authorization'] = auth;
+
     return await forwardToBackend('', {
       method: 'GET',
+      headers,
     });
   } catch (err) {
     // Network/forwarding failure
@@ -52,12 +58,17 @@ export async function GET(_req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.text(); // pass through raw body to preserve formatting
+    // Preserve incoming Authorization header for backend auth
+    const auth = req.headers.get('authorization') || '';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+    if (auth) headers['Authorization'] = auth;
+
     return await forwardToBackend('', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
+      headers,
       body,
     });
   } catch (err) {

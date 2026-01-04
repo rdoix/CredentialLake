@@ -9,6 +9,8 @@ from backend.database import get_db
 from backend.models.credential import Credential
 from backend.models.scan_job import ScanJob, JobCredential
 from backend.models.schemas import PaginatedResponse, CredentialResponse
+from backend.routes.auth import get_current_user
+from backend.models.user import User
 
 router = APIRouter(prefix="/api/results", tags=["results"])
 
@@ -30,7 +32,8 @@ def list_credentials(
     from_date: Optional[str] = Query(None, description="Filter by first_seen from (ISO date)"),
     to_date: Optional[str] = Query(None, description="Filter by last_seen to (ISO date)"),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=500)
+    page_size: int = Query(50, ge=1, le=500),
+    current_user: User = Depends(get_current_user)
 ):
     """List credentials with filters and pagination"""
     query = db.query(Credential)
@@ -77,7 +80,8 @@ def list_job_credentials(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
-    admin_only: bool = Query(False, description="Only admin credentials")
+    admin_only: bool = Query(False, description="Only admin credentials"),
+    current_user: User = Depends(get_current_user)
 ):
     """List credentials associated with a specific job (robust against SQLAlchemy Row/tuple variations)."""
     # Validate job exists

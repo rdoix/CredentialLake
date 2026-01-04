@@ -2,6 +2,7 @@
 
 import { X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
+import DateTimeRangePicker, { DateTimeRange } from '@/components/DateTimeRangePicker';
 
 export interface DashboardFilters {
   domain?: string;
@@ -39,7 +40,7 @@ export default function DashboardFilter({
   const activeFilterCount = Object.values(filters).filter(v => v !== undefined && v !== '').length;
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
+    <div className="bg-card border border-border rounded-xl">
       {/* Header - Always Visible */}
       <div 
         className="flex items-center justify-between p-4 cursor-pointer hover:bg-background/50 transition-colors"
@@ -77,7 +78,7 @@ export default function DashboardFilter({
 
       {/* Filter Content - Collapsible */}
       {isExpanded && (
-        <div className="p-6 pt-0 border-t border-border">
+        <div className="p-6 pt-0 border-t border-border relative">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Sub domain Filter */}
             <div>
@@ -109,25 +110,22 @@ export default function DashboardFilter({
               </select>
             </div>
 
-            {/* Date From */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Date From</label>
-              <input
-                type="date"
-                value={filters.dateFrom || ''}
-                onChange={(e) => updateFilter('dateFrom', e.target.value || undefined)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-
-            {/* Date To */}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Date To</label>
-              <input
-                type="date"
-                value={filters.dateTo || ''}
-                onChange={(e) => updateFilter('dateTo', e.target.value || undefined)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            {/* Date Range Picker */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-2">Date Range</label>
+              <DateTimeRangePicker
+                value={{
+                  from: filters.dateFrom,
+                  to: filters.dateTo
+                }}
+                onChange={(range: DateTimeRange) => {
+                  onFilterChange({
+                    ...filters,
+                    dateFrom: range.from,
+                    dateTo: range.to
+                  });
+                }}
+                placeholder="Select date range"
               />
             </div>
           </div>
@@ -157,22 +155,20 @@ export default function DashboardFilter({
                   </button>
                 </div>
               )}
-              {filters.dateFrom && (
+              {(filters.dateFrom || filters.dateTo) && (
                 <div className="flex items-center gap-2 px-3 py-1 bg-secondary/10 text-secondary rounded-full text-sm">
-                  <span>From: {filters.dateFrom}</span>
+                  <span>
+                    {filters.dateFrom && filters.dateTo
+                      ? `${filters.dateFrom} to ${filters.dateTo}`
+                      : filters.dateFrom
+                      ? `From: ${filters.dateFrom}`
+                      : `To: ${filters.dateTo}`}
+                  </span>
                   <button
-                    onClick={() => updateFilter('dateFrom', undefined)}
-                    className="hover:text-secondary/80"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-              {filters.dateTo && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-secondary/10 text-secondary rounded-full text-sm">
-                  <span>To: {filters.dateTo}</span>
-                  <button
-                    onClick={() => updateFilter('dateTo', undefined)}
+                    onClick={() => {
+                      updateFilter('dateFrom', undefined);
+                      updateFilter('dateTo', undefined);
+                    }}
                     className="hover:text-secondary/80"
                   >
                     <X className="w-3 h-3" />

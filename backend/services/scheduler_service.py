@@ -1,9 +1,10 @@
-"""APScheduler-backed service to trigger IntelX scans on a cron schedule.
+"""APScheduler-backed service to trigger IntelX scans and CVE syncs on a cron schedule.
 
 This service:
 - Loads persisted jobs from DB (ScheduledJob) on startup
 - Registers Cron triggers in Asia/Jakarta (or per-job timezone)
 - Enqueues RQ jobs to run [process_intelx_scan()](backend/workers/scan_worker.py:22) for each keyword
+- Runs automatic CVE sync daily at 2 AM Jakarta time
 - Updates last_run/next_run telemetry fields
 """
 
@@ -54,13 +55,16 @@ class SchedulerService:
         self.job_queue = Queue(connection=self.redis_conn)
 
     def start(self) -> None:
-        """Start APScheduler and register all active ScheduledJob entries."""
+        """Start APScheduler and register all active ScheduledJob entries + CVE auto-sync."""
         if not HAS_APSCHEDULER:
             # No scheduler available; still allow manual run-now via API
             return
 
         if not self.scheduler.running:
             self.scheduler.start()
+
+        # Register CVE auto-sync job (daily at 2 AM Jakarta time)
+        self._register_cve_auto_sync()
 
         db: Session = SessionLocal()
         try:
@@ -221,6 +225,86 @@ class SchedulerService:
                 self.scheduler.remove_job(aps_job_id)
             except Exception:
                 pass
+
+    def _register_cve_auto_sync(self) -> None:
+        """Register a daily CVE auto-sync job at 2 AM Jakarta time."""
+        if not HAS_APSCHEDULER or not self.scheduler:
+            return
+
+        tz = ZoneInfo("Asia/Jakarta")
+        # Run daily at 2:00 AM Jakarta time
+        trigger = CronTrigger(hour=2, minute=0, timezone=tz)
+
+        aps_job_id = "cve-auto-sync"
+
+        # Remove existing job if present
+        existing = self.scheduler.get_job(aps_job_id)
+        if existing:
+            self.scheduler.remove_job(aps_job_id)
+
+        self.scheduler.add_job(
+            self._run_cve_auto_sync,
+            trigger=trigger,
+            id=aps_job_id,
+            replace_existing=True,
+            misfire_grace_time=3600,  # 1 hour grace
+            coalesce=True,
+            max_instances=1,
+        )
+
+        logger.info("CVE auto-sync job registered: daily at 2:00 AM Jakarta time")
+
+    def _run_cve_auto_sync(self) -> None:
+        """Execute CVE incremental sync."""
+        from backend.services.cve_service import CVEService
+        from backend.models.settings import AppSettings
+
+        logger.info("Starting automatic CVE sync...")
+        
+        db: Session = SessionLocal()
+        try:
+            # Determine days to sync
+            settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+            if settings and settings.last_cve_sync_at:
+                last = settings.last_cve_sync_at
+                now_utc = datetime.now(timezone.utc)
+                if last.tzinfo is None:
+                    last = last.replace(tzinfo=timezone.utc)
+                delta_days = max(1, (now_utc - last).days or 1)
+                days = min(delta_days, 30)
+            else:
+                days = 1  # Default to 1 day if never synced
+
+            # Fetch CVEs
+            cves = CVEService.fetch_recent_cves(days=days, db=db)
+            
+            if not cves:
+                logger.info("CVE auto-sync: No new CVEs fetched")
+                return
+
+            # Sync to database
+            result = CVEService.sync_cves_to_db(db, cves)
+
+            # Update last sync timestamp
+            if not settings:
+                settings = AppSettings(id=1)
+                db.add(settings)
+                db.commit()
+                db.refresh(settings)
+            
+            settings.last_cve_sync_at = datetime.now(timezone.utc)
+            db.commit()
+
+            logger.info(
+                f"CVE auto-sync complete: {result['created']} created, "
+                f"{result['updated']} updated, total fetched: {len(cves)}"
+            )
+
+        except Exception as e:
+            logger.error(f"CVE auto-sync failed: {e}")
+            db.rollback()
+        finally:
+            db.close()
 
 
 # Module-level singleton

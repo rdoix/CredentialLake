@@ -37,7 +37,7 @@ export default function TimelineChart({ data }: TimelineChartProps) {
       : '0.0';
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all col-span-2">
+    <div className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all">
       <div className="flex items-start justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold text-foreground">Daily Ingestion Timeline</h3>

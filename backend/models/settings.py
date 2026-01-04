@@ -1,6 +1,7 @@
 """Application settings model (stores API keys and notifier configuration)"""
 from sqlalchemy import Column, Integer, String, DateTime, Float
 from sqlalchemy.sql import func
+from datetime import timezone
 from backend.database import Base
 
 
@@ -18,6 +19,7 @@ class AppSettings(Base):
 
     id = Column(Integer, primary_key=True, default=1)
     intelx_api_key = Column(String(512), nullable=True)
+    nvd_api_key = Column(String(512), nullable=True)  # NVD API key for CVE data (optional)
     teams_webhook_url = Column(String(512), nullable=True)
     slack_webhook_url = Column(String(512), nullable=True)
     telegram_bot_token = Column(String(512), nullable=True)
@@ -32,6 +34,9 @@ class AppSettings(Base):
     parallel_domain_workers = Column(Integer, nullable=True)
     domain_scan_delay = Column(Float, nullable=True)
 
+    # CVE sync tracking (timezone-aware)
+    last_cve_sync_at = Column(DateTime, nullable=True)
+
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 
     def to_dict(self):
@@ -40,10 +45,21 @@ class AppSettings(Base):
             if not key or len(key) < 4:
                 return None
             return f"{key[:2]}{'*' * (len(key) - 3)}{key[-1]}"
-        
+
+        # Format last_cve_sync_at explicitly as UTC ISO8601 with Z suffix for correct client timezone conversion
+        def format_last_sync(dt):
+            if not dt:
+                return None
+            # If stored naive, assume UTC
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            # Convert to UTC and emit Z suffix
+            return dt.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+
         return {
             "notify_provider": self.notify_provider,
             "intelx_api_key": mask_key(self.intelx_api_key) if self.intelx_api_key else None,
+            "nvd_api_key": mask_key(self.nvd_api_key) if self.nvd_api_key else None,
             "teams_webhook_url": mask_key(self.teams_webhook_url) if self.teams_webhook_url else None,
             "slack_webhook_url": mask_key(self.slack_webhook_url) if self.slack_webhook_url else None,
             "telegram_bot_token": mask_key(self.telegram_bot_token) if self.telegram_bot_token else None,
@@ -52,5 +68,7 @@ class AppSettings(Base):
             "rq_workers": self.rq_workers,
             "parallel_domain_workers": self.parallel_domain_workers,
             "domain_scan_delay": self.domain_scan_delay,
+            # CVE sync tracking
+            "last_cve_sync_at": format_last_sync(self.last_cve_sync_at),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

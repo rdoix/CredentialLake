@@ -13,6 +13,8 @@ from backend.models.scan_job import ScanJob
 from backend.models.schemas import JobCreateResponse
 from backend.config import settings
 from backend.workers.scan_worker import process_file_scan
+from backend.routes.auth import require_collector_or_admin
+from backend.models.user import User
 
 router = APIRouter(prefix="/api/scan/file", tags=["file-scan"])
 
@@ -27,7 +29,8 @@ async def create_file_scan(
     name: Optional[str] = Form(None),
     query: Optional[str] = Form(None),
     send_alert: bool = Form(False),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
 ):
     """Create a new file scan job"""
     # Save uploaded file temporarily

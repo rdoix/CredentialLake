@@ -4,6 +4,7 @@ export const getDefaultSettings = (): Settings => {
   return {
     apiKeys: {
       intelx: '',
+      nvd: '',
       telegram: '',
       slack: '',
       teams: '',

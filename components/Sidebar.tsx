@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutDashboard, Database, Settings, ScanSearch, Building2, Clock } from 'lucide-react';
+import { LayoutDashboard, Database, Settings, ScanSearch, Building2, Clock, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
@@ -12,6 +12,7 @@ const navigation = [
   { name: 'Collector', href: '/collector', icon: ScanSearch },
   { name: 'Organizations', href: '/organizations', icon: Building2 },
   { name: 'Credential Lake', href: '/credentials', icon: Database },
+  { name: 'CVE Database', href: '/cve', icon: Shield },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

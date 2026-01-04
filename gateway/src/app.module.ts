@@ -14,12 +14,13 @@ import { DashboardController } from './dashboard.controller';
 import { JwtAuthGuard } from './auth.guard';
 import { throttlerConfig } from './throttler.config';
 import { CredentialsController } from './credentials.controller';
+import { CVEController } from './cve.controller';
 
 @Module({
   imports: [
     ThrottlerModule.forRoot(throttlerConfig),
   ],
-  controllers: [AppController, JobsController, ResultsController, SearchController, ScanController, OrganizationsController, SchedulerController, DashboardController, CredentialsController],
+  controllers: [AppController, JobsController, ResultsController, SearchController, ScanController, OrganizationsController, SchedulerController, DashboardController, CredentialsController, CVEController],
   providers: [
     AppService,
     SearchService,

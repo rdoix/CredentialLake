@@ -14,7 +14,8 @@ from backend.routes import (
     settings_router,
     organizations_router,
     scheduler_router,
-    auth_router
+    auth_router,
+    cve_router
 )
 from backend.routes.pages import router as pages_router
 from backend.routes.credentials import router as credentials_router
@@ -88,3 +89,4 @@ app.include_router(settings_router)
 app.include_router(credentials_router)
 app.include_router(organizations_router)
 app.include_router(scheduler_router)
+app.include_router(cve_router)

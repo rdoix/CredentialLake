@@ -7,6 +7,8 @@ from typing import List, Optional
 from backend.database import get_db
 from backend.models.credential import Credential
 from backend.models.scan_job import JobCredential
+from backend.routes.auth import get_current_user, require_collector_or_admin
+from backend.models.user import User
 
 router = APIRouter(prefix="/api/credentials", tags=["credentials"])
 
@@ -18,7 +20,8 @@ def list_credentials(
     domain: Optional[str] = Query(None, description="Filter by domain"),
     is_admin: Optional[bool] = Query(None, description="Filter by admin status"),
     search: Optional[str] = Query(None, description="Search by email/domain"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """List all credentials with optional filtering and pagination"""
     query = db.query(Credential)
@@ -54,7 +57,8 @@ def list_credentials(
 def get_credential_stats(
     domain: Optional[str] = Query(None, description="Filter by domain"),
     search: Optional[str] = Query(None, description="Search by email/domain"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """Get credential statistics with optional filtering - optimized single query"""
     from sqlalchemy import case, or_, and_
@@ -109,7 +113,11 @@ def get_credential_stats(
 
 
 @router.get("/{credential_id}")
-def get_credential(credential_id: int, db: Session = Depends(get_db)):
+def get_credential(
+    credential_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Get credential details by ID"""
     credential = db.query(Credential).filter(Credential.id == credential_id).first()
     if not credential:
@@ -118,7 +126,11 @@ def get_credential(credential_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{credential_id}")
-def delete_credential(credential_id: int, db: Session = Depends(get_db)):
+def delete_credential(
+    credential_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """Delete a specific credential and its job associations to satisfy FK constraints"""
     credential = db.query(Credential).filter(Credential.id == credential_id).first()
     if not credential:
@@ -134,7 +146,10 @@ def delete_credential(credential_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/")
-def clear_all_credentials(db: Session = Depends(get_db)):
+def clear_all_credentials(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """Clear all credentials from database along with job associations to avoid FK constraint errors"""
     # Delete job-credential associations first to satisfy FK constraints
     assoc_deleted = db.query(JobCredential).delete()

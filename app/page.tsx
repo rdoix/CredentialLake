@@ -6,6 +6,7 @@ import TopDomainsChart from '@/components/dashboard/TopDomainsChart';
 import PasswordCloud from '@/components/dashboard/PasswordCloud';
 import TldChart from '@/components/dashboard/TldChart';
 import TimelineChart from '@/components/dashboard/TimelineChart';
+import CVEFeedCard from '@/components/dashboard/CVEFeedCard';
 import DashboardFilter, { DashboardFilters } from '@/components/dashboard/DashboardFilter';
 import { useUser } from '@/contexts/UserContext';
 import { useEffect, useState, useMemo } from 'react';
@@ -14,7 +15,12 @@ import { getApiUrl } from '@/lib/api-config';
 const API_BASE_URL = getApiUrl();
 
 export default function Dashboard() {
-  const { user } = useUser();
+  const { user, token } = useUser();
+  const buildHeaders = (t: string | null): Record<string, string> => {
+    const h: Record<string, string> = { Accept: 'application/json' };
+    if (t) h.Authorization = `Bearer ${t}`;
+    return h;
+  };
 
   // Dashboard data (demo uses mock, real fetches from API)
   const [data, setData] = useState({
@@ -33,12 +39,13 @@ export default function Dashboard() {
       try {
         console.log('Dashboard: fetching real data', { API_BASE_URL });
 
+        // Append trailing slashes to avoid Next.js 308 redirects that may drop query params in some environments
+        const headers = buildHeaders(token);
         const [statsRes, domRes, tlRes, pwRes] = await Promise.all([
-          // Append trailing slashes to avoid Next.js 308 redirects that may drop query params in some environments
-          fetch(`${API_BASE_URL}/dashboard/stats/`, { headers: { Accept: 'application/json' } }),
-          fetch(`${API_BASE_URL}/dashboard/top-domains/?limit=10`, { headers: { Accept: 'application/json' } }),
-          fetch(`${API_BASE_URL}/dashboard/timeline/?days=30`, { headers: { Accept: 'application/json' } }),
-          fetch(`${API_BASE_URL}/dashboard/top-passwords/?limit=10`, { headers: { Accept: 'application/json' } }),
+          fetch(`${API_BASE_URL}/dashboard/stats/`, { headers }),
+          fetch(`${API_BASE_URL}/dashboard/top-domains/?limit=25`, { headers }),
+          fetch(`${API_BASE_URL}/dashboard/timeline/?days=30`, { headers }),
+          fetch(`${API_BASE_URL}/dashboard/top-passwords/?limit=10`, { headers }),
         ]);
 
         const stats = statsRes.ok ? await statsRes.json() : null;
@@ -151,7 +158,7 @@ export default function Dashboard() {
     };
 
     fetchDashboard();
-  }, []);
+  }, [token]);
 
   // Extract available domains and TLDs for filter dropdowns
   const availableDomains = useMemo(() => {
@@ -231,24 +238,6 @@ export default function Dashboard() {
         <p className="text-muted">Monitor credential leaks and security analytics in real-time</p>
       </div>
 
-      {/* Authenticated Banner */}
-      <div className="bg-primary/5 border border-primary/20 rounded-xl p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Database className="w-5 h-5 text-primary" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-foreground mb-1">
-              {user?.full_name || user?.username || 'Authenticated'}
-            </h3>
-            <p className="text-sm text-muted">
-              You're signed in. Start scanning to see your statistics here.
-              <a href="/collector" className="text-primary hover:underline ml-1">Go to Scanner →</a>
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Dashboard Filter Panel */}
       <DashboardFilter
         filters={filters}
@@ -283,25 +272,30 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left column */}
-        <div className="flex flex-col gap-6">
-          <TopDomainsChart
-            data={filteredData.topDomains}
-            onDomainClick={handleDomainClick}
-          />
-          <TimelineChart data={filteredData.timeline} />
-        </div>
+      {/* Timeline Chart - Full Width (moved to top) */}
+      <div className="grid grid-cols-1 gap-6">
+        <TimelineChart data={filteredData.timeline} />
+      </div>
 
-        {/* Right column */}
-        <div className="flex flex-col gap-6">
-          <PasswordCloud data={filteredData.topPasswords} />
-          <TldChart
-            data={filteredData.topTlds}
-            onTldClick={handleTldClick}
-          />
-        </div>
+      {/* Password Cloud and TLD Chart Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PasswordCloud data={filteredData.topPasswords} />
+        <TldChart
+          data={filteredData.topTlds}
+          onTldClick={handleTldClick}
+        />
+      </div>
+
+      {/* Top 25 Domains and CVE Feed Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Domains Chart */}
+        <TopDomainsChart
+          data={filteredData.topDomains}
+          onDomainClick={handleDomainClick}
+        />
+        
+        {/* CVE Feed Card */}
+        <CVEFeedCard />
       </div>
     </div>
   );

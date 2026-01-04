@@ -21,7 +21,7 @@ export default function TopDomainsChart({ data, onDomainClick }: TopDomainsChart
     <div className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Top Domains</h3>
+          <h3 className="text-lg font-semibold text-foreground">Top 25 Domains</h3>
           <p className="text-sm text-muted">Most affected domains by credential leaks</p>
         </div>
         <div className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
@@ -30,11 +30,11 @@ export default function TopDomainsChart({ data, onDomainClick }: TopDomainsChart
       </div>
 
       {data.length === 0 ? (
-        <div className="flex items-center justify-center h-[350px] text-muted">
+        <div className="flex items-center justify-center h-[800px] text-muted">
           <p>No domain data available</p>
         </div>
       ) : (
-        <ResponsiveContainer width="100%" height={350}>
+        <ResponsiveContainer width="100%" height={800}>
           <BarChart data={data} layout="vertical" margin={{ left: 20, right: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis type="number" stroke="#64748b" tick={{ fill: '#94a3b8' }} />

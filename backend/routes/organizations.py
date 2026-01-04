@@ -9,12 +9,17 @@ from backend.services.organization_service import OrganizationService
 from backend.models.schemas import OrganizationStats, OrganizationDetail
 from backend.models.credential import Credential
 from backend.models.scan_job import JobCredential
+from backend.routes.auth import get_current_user, require_collector_or_admin
+from backend.models.user import User
 
 router = APIRouter(prefix="/api/organizations", tags=["organizations"])
 
 
 @router.get("", response_model=List[OrganizationStats])
-def get_organizations(db: Session = Depends(get_db)):
+def get_organizations(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Get all organizations with aggregated statistics.
     Organizations are grouped by root domain.
@@ -24,7 +29,11 @@ def get_organizations(db: Session = Depends(get_db)):
 
 
 @router.get("/{domain}", response_model=OrganizationDetail)
-def get_organization_detail(domain: str, db: Session = Depends(get_db)):
+def get_organization_detail(
+    domain: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Get detailed information for a specific organization.
     Includes subdomain breakdown and recent credentials.
@@ -38,7 +47,11 @@ def get_organization_detail(domain: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{domain}")
-def delete_organization(domain: str, db: Session = Depends(get_db)):
+def delete_organization(
+    domain: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
+):
     """
     Delete an organization and all its credentials recursively.
     This will delete all credentials where the domain matches the organization root.

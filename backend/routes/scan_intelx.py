@@ -17,6 +17,8 @@ from backend.models.schemas import (
 )
 from backend.config import settings
 from backend.workers.scan_worker import process_intelx_scan, process_multi_domain_scan
+from backend.routes.auth import require_collector_or_admin
+from backend.models.user import User
 
 router = APIRouter(prefix="/api/scan/intelx", tags=["intelx-scan"])
 
@@ -28,7 +30,8 @@ job_queue = Queue(connection=redis_conn)
 @router.post("/single", response_model=JobCreateResponse)
 def create_intelx_scan(
     request: IntelXScanRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
 ):
     """Create a new single domain/email IntelX scan job"""
     # Create job record
@@ -77,7 +80,8 @@ def create_intelx_scan(
 @router.post("/multiple", response_model=JobCreateResponse)
 def create_multi_domain_scan(
     request: IntelXMultiScanRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
 ):
     """Create a new multiple domain IntelX scan job"""
     # Create job record
@@ -131,7 +135,8 @@ async def create_multi_domain_scan_from_file(
     max_results: int = Form(100),
     display_limit: int = Form(10),
     send_alert: bool = Form(False),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_collector_or_admin)
 ):
     """Create a new multiple domain scan from uploaded file"""
     # Save uploaded file temporarily

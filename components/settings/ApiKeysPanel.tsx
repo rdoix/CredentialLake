@@ -15,12 +15,14 @@ const API_BASE_URL = getApiUrl();
 export default function ApiKeysPanel({ apiKeys, onChange }: ApiKeysPanelProps) {
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({
     intelx: false,
+    nvd: false,
     telegram: false,
     slack: false,
     teams: false,
   });
   const [serverKeys, setServerKeys] = useState<Record<string, boolean>>({
     intelx: false,
+    nvd: false,
     telegram: false,
     slack: false,
     teams: false,
@@ -30,8 +32,14 @@ export default function ApiKeysPanel({ apiKeys, onChange }: ApiKeysPanelProps) {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
+        // Build Authorization header from UserContext token
+        const { useUser } = await import('@/contexts/UserContext');
+        const { token } = useUser();
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
         const res = await fetch(`${API_BASE_URL}/settings/`, {
-          headers: { Accept: 'application/json' },
+          headers,
         });
         if (!res.ok) return;
         
@@ -41,14 +49,16 @@ export default function ApiKeysPanel({ apiKeys, onChange }: ApiKeysPanelProps) {
         // Check which keys are set on server (backend returns masked values like "ad*****h")
         setServerKeys({
           intelx: !!data.intelx_api_key,
+          nvd: !!data.nvd_api_key,
           telegram: !!data.telegram_bot_token,
           slack: !!data.slack_webhook_url,
           teams: !!data.teams_webhook_url,
         });
-
+ 
         // If keys exist on server, show the masked value from backend in the input field
         const updatedKeys: ApiKeys = {
           intelx: data.intelx_api_key || apiKeys.intelx || '',
+          nvd: data.nvd_api_key || apiKeys.nvd || '',
           telegram: data.telegram_bot_token || apiKeys.telegram || '',
           slack: data.slack_webhook_url || apiKeys.slack || '',
           teams: data.teams_webhook_url || apiKeys.teams || '',
@@ -60,7 +70,7 @@ export default function ApiKeysPanel({ apiKeys, onChange }: ApiKeysPanelProps) {
         console.error('Failed to fetch settings:', err);
       }
     };
-
+ 
     fetchSettings();
   }, []);
 
@@ -88,6 +98,13 @@ export default function ApiKeysPanel({ apiKeys, onChange }: ApiKeysPanelProps) {
       description: 'Required for scanning IntelX database',
       placeholder: 'Enter your IntelX API key',
       icon: '🔍',
+    },
+    {
+      key: 'nvd' as keyof ApiKeys,
+      label: 'NVD API Key',
+      description: 'Optional - Increases CVE sync rate limit from 5 to 50 requests per 30 seconds',
+      placeholder: 'Enter your NVD API key (optional)',
+      icon: '🛡️',
     },
     {
       key: 'telegram' as keyof ApiKeys,

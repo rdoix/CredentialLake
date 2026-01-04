@@ -5,6 +5,8 @@ from typing import Optional, Dict, Any
 
 from backend.database import get_db
 from backend.models.settings import AppSettings
+from backend.routes.auth import get_current_user, require_admin
+from backend.models.user import User
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -21,18 +23,26 @@ def _get_singleton_settings(db: Session) -> AppSettings:
 
 
 @router.get("/", response_model=dict)
-def get_settings(db: Session = Depends(get_db)):
+def get_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """Return masked settings; secrets are not exposed"""
     settings = _get_singleton_settings(db)
     return settings.to_dict()
 
 
 @router.post("/", response_model=dict)
-def update_settings(payload: Dict[str, Any], db: Session = Depends(get_db)):
+def update_settings(
+    payload: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
     """
     Update application settings.
     Accepts JSON body with any of:
       - intelx_api_key
+      - nvd_api_key (optional - for CVE data sync)
       - notify_provider: 'none'|'teams'|'slack'|'telegram'
       - teams_webhook_url
       - slack_webhook_url
@@ -52,6 +62,8 @@ def update_settings(payload: Dict[str, Any], db: Session = Depends(get_db)):
     # Assign provided fields if present
     if "intelx_api_key" in payload:
         settings.intelx_api_key = payload.get("intelx_api_key") or None
+    if "nvd_api_key" in payload:
+        settings.nvd_api_key = payload.get("nvd_api_key") or None
     if "notify_provider" in payload:
         settings.notify_provider = payload.get("notify_provider") or "none"
     if "teams_webhook_url" in payload:
