@@ -5,6 +5,7 @@ import { Building2, Shield, Database, TrendingUp, Search, ChevronRight } from 'l
 import { useUser } from '@/contexts/UserContext';
 import { Organization } from '@/types/organization';
 import Link from 'next/link';
+import OrganizationsPagination from '@/components/organizations/OrganizationsPagination';
 
 import { getApiUrl } from '@/lib/api-config';
 const API_BASE_URL = getApiUrl();
@@ -16,6 +17,8 @@ export default function OrganizationsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'domain' | 'credentials' | 'admin'>('credentials');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -202,6 +205,18 @@ export default function OrganizationsPage() {
     return filtered;
   }, [organizations, searchQuery, sortBy, sortOrder]);
 
+  // Paginated organizations
+  const paginatedOrganizations = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredOrganizations.slice(startIndex, endIndex);
+  }, [filteredOrganizations, currentPage, pageSize]);
+
+  // Reset to page 1 when search or filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, sortBy, sortOrder]);
+
   const totalStats = useMemo(() => {
     return {
       totalOrganizations: organizations.length,
@@ -231,51 +246,59 @@ export default function OrganizationsPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Building2 className="w-6 h-6 text-primary" />
             </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-2xl font-bold text-foreground">
+                {totalStats.totalOrganizations.toLocaleString()}
+              </h3>
+              <p className="text-sm text-muted">Total Organizations</p>
+            </div>
           </div>
-          <h3 className="text-2xl font-bold text-foreground mb-1">
-            {totalStats.totalOrganizations}
-          </h3>
-          <p className="text-sm text-muted">Total Organizations</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
               <Database className="w-6 h-6 text-accent" />
             </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-2xl font-bold text-foreground">
+                {totalStats.totalCredentials.toLocaleString()}
+              </h3>
+              <p className="text-sm text-muted">Total Credentials</p>
+            </div>
           </div>
-          <h3 className="text-2xl font-bold text-foreground mb-1">
-            {totalStats.totalCredentials.toLocaleString()}
-          </h3>
-          <p className="text-sm text-muted">Total Credentials</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-lg bg-danger/10 flex items-center justify-center">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-danger/10 flex items-center justify-center flex-shrink-0">
               <Shield className="w-6 h-6 text-danger" />
             </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-2xl font-bold text-foreground">
+                {totalStats.totalAdmin.toLocaleString()}
+              </h3>
+              <p className="text-sm text-muted">Admin Accounts</p>
+            </div>
           </div>
-          <h3 className="text-2xl font-bold text-foreground mb-1">
-            {totalStats.totalAdmin.toLocaleString()}
-          </h3>
-          <p className="text-sm text-muted">Admin Accounts</p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
               <TrendingUp className="w-6 h-6 text-success" />
             </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-2xl font-bold text-foreground">
+                {totalStats.totalSubdomains.toLocaleString()}
+              </h3>
+              <p className="text-sm text-muted">Total Sub domains</p>
+            </div>
           </div>
-          <h3 className="text-2xl font-bold text-foreground mb-1">
-            {totalStats.totalSubdomains}
-          </h3>
-          <p className="text-sm text-muted">Total Sub domains</p>
         </div>
       </div>
 
@@ -359,7 +382,7 @@ export default function OrganizationsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredOrganizations.map((org) => (
+                paginatedOrganizations.map((org) => (
                   <tr key={org.domain} className="hover:bg-muted/5 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -408,6 +431,20 @@ export default function OrganizationsPage() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && filteredOrganizations.length > 0 && (
+        <OrganizationsPagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          total={filteredOrganizations.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newPageSize) => {
+            setPageSize(newPageSize);
+            setCurrentPage(1); // Reset to first page when changing page size
+          }}
+        />
+      )}
     </div>
   );
 }
