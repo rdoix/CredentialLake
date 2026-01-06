@@ -165,14 +165,9 @@ export default function JobScheduler({ jobs: initialJobs }: JobSchedulerProps) {
   const [notifyTeams, setNotifyTeams] = useState(false);
   const [runImmediately, setRunImmediately] = useState(false);
 
-  // Load jobs from backend on mount only if no initial jobs provided
+  // Load jobs from backend on mount
   useEffect(() => {
-    // If initial jobs were provided (e.g., mock data), use them and skip backend fetch
-    if (initialJobs && initialJobs.length > 0) {
-      return;
-    }
-
-    // Otherwise, fetch from backend
+    // Fetch from backend
     (async () => {
       try {
         const res = await fetch(`${apiBase}/scheduler/jobs`, { headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) } });

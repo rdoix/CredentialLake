@@ -20,7 +20,7 @@ const API_BASE_URL = getApiUrl();
 // Settings storage key used by Settings page
 const SETTINGS_KEY = 'intelx_scanner_settings';
 
-// Local utilities migrated from lib/mock-credentials to remove mock dependency
+// Local utility functions for filtering credentials
 const filterCredentials = (credentials: Credential[], filters: any): Credential[] => {
   return credentials.filter(cred => {
     if (filters.search) {

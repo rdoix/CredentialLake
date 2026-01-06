@@ -36,10 +36,8 @@ export const API_ENDPOINTS = {
   AUTH_LIST_USERS: `${getBackendUrl()}/users`,
   AUTH_UPDATE_USER: (userId: number) => `${getBackendUrl()}/users/${userId}`,
   AUTH_DELETE_USER: (userId: number) => `${getBackendUrl()}/users/${userId}`,
-  // Dummy data endpoints
+  // Dummy data endpoints (for first deployment)
   AUTH_CHECK_DUMMY_DATA: `${getBackendUrl()}/check-dummy-data`,
-  AUTH_IMPORT_DUMMY_DATA: `${getBackendUrl()}/import-dummy-data`,
-  // Async import endpoints (preferred to avoid long-running request timeouts)
   AUTH_IMPORT_DUMMY_START: `${getBackendUrl()}/import-dummy-start`,
   DUMMY_IMPORT_STATUS: `${getBackendUrl()}/dummy-import-status`,
 

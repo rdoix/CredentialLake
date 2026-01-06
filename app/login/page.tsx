@@ -257,7 +257,6 @@ export default function LoginPage() {
       statusIntervalRef.current = window.setInterval(poll, 3000);
 
     } catch (err: any) {
-      // Handle JSON parse errors like "Unexpected token I in JSON at position 0" from legacy endpoint
       const msg = err?.message || 'Failed to import dummy data';
       setError(msg);
       setImportingDummyData(false);
@@ -275,8 +274,6 @@ export default function LoginPage() {
     setShouldBlockRedirect(false);
     router.push('/');
   };
-
-  // Demo user seeding removed to ensure administrator depends only on deployer input.
 
   // Check password match whenever confirmPassword changes
   useEffect(() => {
@@ -671,7 +668,7 @@ export default function LoginPage() {
               </div>
 
               <p className="text-xs text-slate-400 text-center mt-4">
-                You can import dummy data later from the settings page if needed
+                You can import dummy data later using CLI commands if needed
               </p>
             </div>
           </div>

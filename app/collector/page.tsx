@@ -28,7 +28,6 @@ export default function Collector() {
     { id: 'scheduler' as Tab, label: 'Job Scheduler', icon: Calendar },
   ];
 
-  // Scheduled jobs: real users fetch inside JobScheduler; no mock data injected
   const scheduledJobs: ScheduledJob[] = [];
 
   // Fetch real jobs from API

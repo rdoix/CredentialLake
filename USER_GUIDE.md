@@ -7,28 +7,6 @@ Open your browser and navigate to: **http://localhost:3000**
 
 ---
 
-## 👤 Profile System
-
-### Profile Switcher (Top-Right Corner)
-
-The profile switcher allows you to toggle between demo and real data:
-
-**🎭 Demo User**
-- Shows mock/dummy data for testing
-- No real API calls made
-- Perfect for exploring the interface
-
-**✅ Real mode**
-- Shows YOUR real scan data
-- Makes actual API calls to IntelX
-- All scans are saved to database
-- Only shows jobs YOU created
-
-**How to Switch**:
-1. Click the profile button in top-right corner
-2. Select your desired profile
-3. Interface updates immediately
-
 ---
 
 ## ⚙️ Settings & API Configuration
@@ -49,8 +27,7 @@ The profile switcher allows you to toggle between demo and real data:
 
 ### Single Domain Scan
 
-1. Sign in to your account (Real mode) via the top-right profile button
-2. Go to **Collector** page
+1. Go to **Collector** page
 3. Click **"Active Scanner"** tab
 4. Enter your domain/keyword (e.g., `example.co.id`)
 5. Set **Max Results** (1-10000)
@@ -130,12 +107,7 @@ For each job you'll see:
 
 ### For Clean Data Management
 
-1. **Start Fresh**:
-   - Sign in to your account (Real mode)
-   - Click "Clear All" to remove any old jobs
-   - Now only YOUR scans will appear
-
-2. **Organize Your Scans**:
+1. **Organize Your Scans**:
    - Use descriptive keywords
    - Choose appropriate time filters
    - Delete completed jobs you no longer need
@@ -144,19 +116,6 @@ For each job you'll see:
    - Jobs tab auto-refreshes every 3 seconds
    - Watch parse rates to gauge data quality
    - Check for failed jobs and errors
-
-### Profile Usage Tips
-
-- Use **Demo User** to:
-  - Explore the interface
-  - Test features without API calls
-  - Show the platform to others
-
-- Use **Real mode** to:
-  - Run real credential scans
-  - Access actual database results
-  - Track your scan history
-  - Get production data
 
 ---
 
@@ -194,11 +153,6 @@ For each job you'll see:
 - Key: `intelx_scanner_settings`
 - Persists across sessions
 
-**Profile**:
-- Stored in browser `localStorage`
-- Key: `userProfile`
-- Values: `"demo"` or `"real"`
-
 ### API Endpoints
 
 **Fetch Jobs**: `GET /api/jobs/`
@@ -220,10 +174,7 @@ For each job you'll see:
 ### Complete Scan Workflow
 
 ```
-1. Sign in to your account (Real mode) ✅
-   └─ Use the top-right profile button
-
-2. Go to Settings → Add API Key ⚙️
+1. Go to Settings → Add API Key ⚙️
    └─ Save IntelX API key
 
 3. Go to Collector → Active Scanner 🔍
@@ -253,8 +204,7 @@ For each job you'll see:
 
 ### Jobs Not Appearing?
 
-1. ✅ Ensure you're signed in (Real mode) (not Demo User)
-2. ✅ Check API key is saved in Settings
+1. ✅ Check API key is saved in Settings
 3. ✅ Verify backend is running: `docker-compose ps`
 4. ✅ Check backend logs: `docker-compose logs backend`
 
@@ -264,18 +214,11 @@ For each job you'll see:
 2. ✅ Check browser console for errors (F12)
 3. ✅ Try refreshing the page
 
-### Old Mock Data Still Showing?
-
-1. ✅ Clear browser cache (Ctrl+Shift+Delete)
-2. ✅ Hard refresh page (Ctrl+F5)
-3. ✅ Click "Clear All" to remove old jobs
-
 ---
 
 ## 🎉 You're All Set!
 
 You now have:
-- ✅ Profile system with demo & real modes
 - ✅ Persistent API key storage
 - ✅ Real-time job monitoring
 - ✅ Job deletion capabilities

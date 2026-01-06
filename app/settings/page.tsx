@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Settings as SettingsType } from '@/types/settings';
-import { getDefaultSettings } from '@/lib/mock-settings';
+import { getDefaultSettings } from '@/lib/default-settings';
 import ApiKeysPanel from '@/components/settings/ApiKeysPanel';
 import NotificationPanel from '@/components/settings/NotificationPanel';
 import PreferencesPanel from '@/components/settings/PreferencesPanel';
