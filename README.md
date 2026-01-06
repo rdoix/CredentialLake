@@ -705,6 +705,7 @@ Notes and best practices:
 - [`DEPLOYMENT_GUIDE.md`](DEPLOYMENT_GUIDE.md) - Production deployment
 - [`USER_GUIDE.md`](USER_GUIDE.md) - Detailed user manual
 - [`DUMMY_DATA_SETUP.md`](DUMMY_DATA_SETUP.md) - Testing with dummy data
+- [`PLATFORM_COMPATIBILITY.md`](PLATFORM_COMPATIBILITY.md) - Docker build issues across different platforms
 
 ---
 

@@ -85,9 +85,9 @@ show_progress() {
   printf "${CYAN}]${NC} ${BOLD}%3d%%${NC}" "$percentage"
 }
 
-# 1) Detect OS
+# 1) Detect OS and Architecture
 detect_os() {
-  print_header "Step 1/7: Detecting Operating System"
+  print_header "Step 1/7: Detecting Operating System & Architecture"
   step "Analyzing system environment..."
   
   local ost="${OSTYPE:-}"
@@ -115,6 +115,32 @@ detect_os() {
     OS_ID="unknown"
     warn "Unknown OS. Attempting generic setup..."
   fi
+  
+  # Detect CPU architecture
+  step "Detecting CPU architecture..."
+  local arch
+  arch=$(uname -m)
+  
+  case "$arch" in
+    x86_64|amd64)
+      PLATFORM="linux/amd64"
+      success "Architecture: ${BOLD}x86_64/AMD64${NC}"
+      ;;
+    aarch64|arm64)
+      PLATFORM="linux/arm64"
+      success "Architecture: ${BOLD}ARM64${NC}"
+      ;;
+    armv7l)
+      PLATFORM="linux/arm/v7"
+      success "Architecture: ${BOLD}ARMv7${NC}"
+      ;;
+    *)
+      PLATFORM="linux/amd64"
+      warn "Unknown architecture: ${arch}. Defaulting to ${BOLD}linux/amd64${NC}"
+      ;;
+  esac
+  
+  info "Docker build platform: ${BOLD}${PLATFORM}${NC}"
   echo ""
 }
 
@@ -475,7 +501,11 @@ handle_existing_deployment() {
     echo ""
     echo -e "${BOLD}Would you like to rebuild the containers?${NC}"
     echo -e "${DIM}This will stop existing containers and rebuild them${NC}"
-    echo -e "${DIM}Command: docker compose down && docker compose up -d --build${NC}"
+    if [[ -n "${PLATFORM:-}" ]]; then
+      echo -e "${DIM}Command: DOCKER_DEFAULT_PLATFORM=${PLATFORM} docker compose down && docker compose up -d --build${NC}"
+    else
+      echo -e "${DIM}Command: docker compose down && docker compose up -d --build${NC}"
+    fi
     echo ""
     read -r -p "Rebuild containers? [y/N]: " ans
     ans="${ans:-n}"
@@ -487,7 +517,12 @@ handle_existing_deployment() {
       success "Stopped existing containers"
       echo ""
       step "Rebuilding and starting containers..."
-      docker compose up -d --build
+      if [[ -n "${PLATFORM:-}" ]]; then
+        info "Using platform-specific build: ${PLATFORM}"
+        DOCKER_DEFAULT_PLATFORM="${PLATFORM}" docker compose up -d --build
+      else
+        docker compose up -d --build
+      fi
       success "Rebuild complete"
       echo ""
       # Continue to wait_for_ready afterwards in main
@@ -495,7 +530,11 @@ handle_existing_deployment() {
       echo ""
       warn "Setup cancelled by user"
       echo ""
-      echo -e "${DIM}To rebuild later, run: ${BOLD}docker compose up -d --build${NC}"
+      if [[ -n "${PLATFORM:-}" ]]; then
+        echo -e "${DIM}To rebuild later, run: ${BOLD}DOCKER_DEFAULT_PLATFORM=${PLATFORM} docker compose up -d --build${NC}"
+      else
+        echo -e "${DIM}To rebuild later, run: ${BOLD}docker compose up -d --build${NC}"
+      fi
       exit 0
     fi
   else
@@ -512,6 +551,11 @@ start_services() {
   echo -e "${DIM}This will build and start all containers${NC}"
   echo -e "${DIM}First run may take several minutes to download images${NC}"
   echo ""
+  
+  if [[ -n "${PLATFORM:-}" ]]; then
+    info "Building for platform: ${BOLD}${PLATFORM}${NC}"
+    echo ""
+  fi
 
   # Small interactive pause to allow cancel or immediate start
   if [ -t 1 ]; then
@@ -525,8 +569,13 @@ start_services() {
   step "Building and starting containers..."
   echo ""
   
-  # Run docker compose with output
-  docker compose up -d --build
+  # Run docker compose with platform specification if available
+  if [[ -n "${PLATFORM:-}" ]]; then
+    info "Using platform-specific build: ${PLATFORM}"
+    DOCKER_DEFAULT_PLATFORM="${PLATFORM}" docker compose up -d --build
+  else
+    docker compose up -d --build
+  fi
   
   echo ""
   success "All containers started successfully"
