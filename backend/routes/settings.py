@@ -2,13 +2,22 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
+from pydantic import BaseModel
 
 from backend.database import get_db
 from backend.models.settings import AppSettings
 from backend.routes.auth import get_current_user, require_admin
 from backend.models.user import User
+from backend.services.alert_service import AlertService
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+
+class TestNotificationRequest(BaseModel):
+    provider: str  # 'telegram' | 'slack' | 'teams'
+    bot_token: Optional[str] = None
+    chat_id: Optional[str] = None
+    webhook_url: Optional[str] = None
 
 
 def _get_singleton_settings(db: Session) -> AppSettings:
@@ -108,3 +117,62 @@ def update_settings(
 
     # Return masked view including tunables
     return settings.to_dict()
+
+
+@router.post("/test-notification")
+def test_notification(
+    request: TestNotificationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Test notification by sending a test message to the specified provider.
+    Does not save settings - just tests the connection.
+    """
+    provider = request.provider.lower()
+    
+    if provider not in ('telegram', 'slack', 'teams'):
+        raise HTTPException(status_code=400, detail="Invalid provider")
+    
+    # Build test config
+    config = {}
+    
+    if provider == 'telegram':
+        if not request.bot_token or not request.chat_id:
+            raise HTTPException(status_code=400, detail="Bot token and chat ID required for Telegram")
+        config = {
+            "telegram_bot_token": request.bot_token,
+            "telegram_chat_id": request.chat_id
+        }
+    elif provider == 'slack':
+        if not request.webhook_url:
+            raise HTTPException(status_code=400, detail="Webhook URL required for Slack")
+        config = {
+            "slack_webhook_url": request.webhook_url
+        }
+    elif provider == 'teams':
+        if not request.webhook_url:
+            raise HTTPException(status_code=400, detail="Webhook URL required for Teams")
+        config = {
+            "teams_webhook_url": request.webhook_url
+        }
+    
+    # Send test notification
+    test_credentials = ["test:credential:example.com"]
+    test_domains = ["example.com"]
+    
+    success = AlertService.send_notification(
+        provider=provider,
+        config=config,
+        query="Test Notification",
+        credentials=test_credentials,
+        domains=test_domains,
+        csv_file="test.csv",
+        parser_instance=None,
+        is_file_mode=False
+    )
+    
+    if success:
+        return {"status": "success", "message": f"Test notification sent to {provider}"}
+    else:
+        raise HTTPException(status_code=500, detail=f"Failed to send test notification to {provider}")

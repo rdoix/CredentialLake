@@ -2,6 +2,7 @@ export interface ApiKeys {
   intelx: string;
   nvd: string;
   telegram: string;
+  telegramChatId: string;
   slack: string;
   teams: string;
 }

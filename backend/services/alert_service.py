@@ -107,9 +107,19 @@ class AlertService:
             raw_lines = _normalize_credentials_input(credentials)
             text = _build_text_summary(query, domains, raw_lines, parser_instance, limit=15)
             payload = {"text": text}
+            print(f"AlertService.send_slack_notification: sending to Slack webhook (len(lines)={len(raw_lines)})")
             resp = requests.post(webhook_url, json=payload, timeout=30)
-            return 200 <= resp.status_code < 300
-        except Exception:
+            ok = 200 <= resp.status_code < 300
+            if not ok:
+                try:
+                    print(f"AlertService.send_slack_notification: failed status={resp.status_code} body={resp.text[:500]}")
+                except Exception:
+                    print("AlertService.send_slack_notification: failed and could not read response body")
+            else:
+                print("AlertService.send_slack_notification: success")
+            return ok
+        except Exception as e:
+            print(f"AlertService.send_slack_notification: exception {e}")
             return False
 
     @staticmethod
@@ -133,9 +143,19 @@ class AlertService:
                 "text": text,
                 "parse_mode": "Markdown"
             }
+            print(f"AlertService.send_telegram_notification: sending to chat_id={chat_id} (len(lines)={len(raw_lines)})")
             resp = requests.post(url, json=payload, timeout=30)
-            return 200 <= resp.status_code < 300
-        except Exception:
+            ok = 200 <= resp.status_code < 300
+            if not ok:
+                try:
+                    print(f"AlertService.send_telegram_notification: failed status={resp.status_code} body={resp.text[:500]}")
+                except Exception:
+                    print("AlertService.send_telegram_notification: failed and could not read response body")
+            else:
+                print("AlertService.send_telegram_notification: success")
+            return ok
+        except Exception as e:
+            print(f"AlertService.send_telegram_notification: exception {e}")
             return False
 
     @staticmethod
@@ -160,6 +180,7 @@ class AlertService:
         """
         provider = (provider or "none").lower()
         if provider == "none":
+            print("AlertService.send_notification: provider=none (skipping)")
             return False
 
         if provider == "teams":

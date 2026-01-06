@@ -6,6 +6,7 @@ export const getDefaultSettings = (): Settings => {
       intelx: '',
       nvd: '',
       telegram: '',
+      telegramChatId: '',
       slack: '',
       teams: '',
     },

@@ -37,6 +37,8 @@ from backend.database import SessionLocal
 from backend.models.scheduled_job import ScheduledJob
 from backend.models.scan_job import ScanJob
 from backend.workers.scan_worker import process_intelx_scan
+from backend.services.batch_alert_service import BatchAlertService
+from backend.workers.batch_alert_task import send_batch_alert_after_completion_task
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +167,9 @@ class SchedulerService:
             max_results = 100
             display_limit = 10
 
+            # Track job IDs for batch alert aggregation
+            job_ids = []
+
             for kw in keywords:
                 # Create a ScanJob row to track execution
                 job_id = str(uuid.uuid4())
@@ -178,8 +183,11 @@ class SchedulerService:
                 )
                 db.add(job_row)
                 db.commit()
+                
+                # Store job ID for batch alert
+                job_ids.append(job_id)
 
-                # Enqueue the actual worker task
+                # Enqueue the actual worker task WITHOUT individual alerts
                 enq_job = self.job_queue.enqueue(
                     process_intelx_scan,
                     job_id,
@@ -187,7 +195,7 @@ class SchedulerService:
                     max_results,
                     sj.time_filter or "D1",
                     display_limit,
-                    send_alert,
+                    False,  # Disable individual alerts - we'll send batch alert instead
                     job_timeout=settings.JOB_TIMEOUT,
                 )
                 # Persist RQ job id to enable cancellation of queued jobs
@@ -202,6 +210,19 @@ class SchedulerService:
                 except Exception as e:
                     logger.warning(f"scheduler_service._run_scheduled_job: failed to persist rq_job_id for job_id={job_id}: {e}")
 
+            # Enqueue batch alert job to run after all scans complete
+            if send_alert and job_ids:
+                # Enqueue a separate module-level function defined in backend.workers.batch_alert_task
+                self.job_queue.enqueue(
+                    send_batch_alert_after_completion_task,
+                    scheduled_job_id,
+                    job_ids,
+                    sj.name,
+                    now,
+                    job_timeout=settings.JOB_TIMEOUT * 2  # Allow extra time for batch processing
+                )
+                logger.info(f"scheduler_service._run_scheduled_job: enqueued batch alert job for {len(job_ids)} scans")
+
             # After enqueuing, refresh APS next run time telemetry
             aps_job_id = self._aps_job_ids.get(str(sj.id))
             if aps_job_id and self.scheduler:
@@ -212,10 +233,138 @@ class SchedulerService:
         finally:
             db.close()
 
+    @staticmethod
+    def _send_batch_alert_after_completion(
+        scheduled_job_id: str,
+        job_ids: List[str],
+        scheduled_job_name: str,
+        scan_date: datetime
+    ) -> None:
+        """
+        Wait for all scan jobs to complete, then send aggregated batch alert.
+        This runs as a separate RQ job.
+        """
+        import time
+        from backend.models.settings import AppSettings
+        
+        db: Session = SessionLocal()
+        try:
+            # Poll for job completion (max 30 minutes)
+            max_wait_seconds = 1800
+            poll_interval = 10
+            elapsed = 0
+            
+            logger.info(f"scheduler_service._send_batch_alert: waiting for {len(job_ids)} jobs to complete")
+            
+            while elapsed < max_wait_seconds:
+                all_complete = True
+                for job_id in job_ids:
+                    job = db.query(ScanJob).filter(ScanJob.id == job_id).first()
+                    if not job or job.status not in ['completed', 'failed', 'cancelled']:
+                        all_complete = False
+                        break
+                
+                if all_complete:
+                    logger.info(f"scheduler_service._send_batch_alert: all jobs completed after {elapsed}s")
+                    break
+                
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+            
+            if not all_complete:
+                logger.warning(f"scheduler_service._send_batch_alert: timeout waiting for jobs to complete after {elapsed}s")
+            
+            # Collect results from all jobs
+            results = BatchAlertService.collect_job_results(db, job_ids)
+            
+            # Get notification settings
+            app_settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+            if not app_settings:
+                logger.warning("scheduler_service._send_batch_alert: no app settings found")
+                return
+            
+            # Get scheduled job to check which provider is enabled
+            sj = db.query(ScheduledJob).filter(ScheduledJob.id == uuid.UUID(scheduled_job_id)).first()
+            if not sj:
+                logger.warning("scheduler_service._send_batch_alert: scheduled job not found")
+                return
+            
+            # Determine provider from scheduled job flags
+            provider = "none"
+            if sj.notify_telegram:
+                provider = "telegram"
+            elif sj.notify_slack:
+                provider = "slack"
+            elif sj.notify_teams:
+                provider = "teams"
+            
+            logger.info(f"scheduler_service._send_batch_alert: using provider '{provider}' for scheduled job '{scheduled_job_name}'")
+            
+            config = {
+                "teams_webhook_url": app_settings.teams_webhook_url if app_settings else None,
+                "slack_webhook_url": app_settings.slack_webhook_url if app_settings else None,
+                "telegram_bot_token": app_settings.telegram_bot_token if app_settings else None,
+                "telegram_chat_id": app_settings.telegram_chat_id if app_settings else None
+            }
+            
+            # Construct dashboard URL (adjust based on your deployment)
+            dashboard_url = settings.FRONTEND_URL if hasattr(settings, 'FRONTEND_URL') else "http://localhost:3000"
+            
+            # Send batch alert
+            try:
+                # Convert scan_date to local Asia/Jakarta for better UX in notifications
+                try:
+                    from zoneinfo import ZoneInfo
+                    local_scan_date = scan_date.astimezone(ZoneInfo("Asia/Jakarta"))
+                except Exception:
+                    local_scan_date = scan_date
+
+                # Diagnostic print for provider/config presence and results summary
+                print(
+                    "scheduler_service._send_batch_alert: "
+                    f"provider={provider} "
+                    f"cfg={{'teams': {bool(config.get('teams_webhook_url'))}, "
+                    f"'slack': {bool(config.get('slack_webhook_url'))}, "
+                    f"'telegram_token': {bool(config.get('telegram_bot_token'))}, "
+                    f"'telegram_chat_id': {bool(config.get('telegram_chat_id'))}}} "
+                    f"results_summary={{'queries_with_findings': {results.get('queries_with_findings')}, "
+                    f"'total_credentials_found': {results.get('total_credentials_found')}}}"
+                )
+
+                success = BatchAlertService.send_batch_notification(
+                    provider,
+                    config,
+                    scheduled_job_name,
+                    local_scan_date,
+                    results,
+                    dashboard_url
+                )
+            except Exception as e:
+                success = False
+                logger.error(f"scheduler_service._send_batch_alert: exception while sending batch alert: {e}")
+                print(f"scheduler_service._send_batch_alert: exception while sending batch alert: {e}")
+            
+            if success:
+                logger.info(f"scheduler_service._send_batch_alert: batch alert sent successfully for scheduled job '{scheduled_job_name}'")
+            else:
+                logger.warning(f"scheduler_service._send_batch_alert: failed to send batch alert for scheduled job '{scheduled_job_name}'")
+                
+        except Exception as e:
+            logger.error(f"scheduler_service._send_batch_alert: error sending batch alert: {e}")
+        finally:
+            db.close()
+
     def run_job_now(self, scheduled_job_id: str) -> None:
         """Manually trigger a ScheduledJob immediately."""
         # Fire the same path used by APS
         self._run_scheduled_job(scheduled_job_id)
+
+
+# Note:
+# The batch alert task is now provided by backend.workers.batch_alert_task.send_batch_alert_after_completion_task
+# to avoid RQ serializing a bound class method that may contain non-serializable scheduler state.
+# Ensure imports at top include:
+# from backend.workers.batch_alert_task import send_batch_alert_after_completion_task
 
     def remove_job(self, scheduled_job_id: str) -> None:
         """Remove APS job and delete telemetry mapping."""

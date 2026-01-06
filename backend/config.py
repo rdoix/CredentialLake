@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     PARALLEL_DOMAIN_WORKERS: int = 20  # Number of concurrent domain scans
     DOMAIN_SCAN_DELAY: float = 0.1  # Delay between domain scans (seconds)
     
+    # Frontend URL for alert links
+    FRONTEND_URL: str = "http://localhost:3000"
+    
     # Retention
     RETENTION_DAYS: int = 90
     

@@ -68,6 +68,7 @@ export default function Settings() {
             intelx: data?.intelx_api_key ?? prev.apiKeys.intelx,
             nvd: data?.nvd_api_key ?? prev.apiKeys.nvd,
             telegram: data?.telegram_bot_token ?? prev.apiKeys.telegram,
+            telegramChatId: data?.telegram_chat_id ?? prev.apiKeys.telegramChatId,
             slack: data?.slack_webhook_url ?? prev.apiKeys.slack,
             teams: data?.teams_webhook_url ?? prev.apiKeys.teams,
           },
@@ -108,6 +109,7 @@ export default function Settings() {
       if (notMasked(apiKeys.intelx)) payload.intelx_api_key = apiKeys.intelx;
       if (notMasked(apiKeys.nvd)) payload.nvd_api_key = apiKeys.nvd;
       if (notMasked(apiKeys.telegram)) payload.telegram_bot_token = apiKeys.telegram;
+      if (apiKeys.telegramChatId) payload.telegram_chat_id = apiKeys.telegramChatId;
       if (notMasked(apiKeys.slack)) payload.slack_webhook_url = apiKeys.slack;
       if (notMasked(apiKeys.teams)) payload.teams_webhook_url = apiKeys.teams;
 
@@ -153,6 +155,7 @@ export default function Settings() {
                 intelx: data2?.intelx_api_key ?? prev.apiKeys.intelx,
                 nvd: data2?.nvd_api_key ?? prev.apiKeys.nvd,
                 telegram: data2?.telegram_bot_token ?? prev.apiKeys.telegram,
+                telegramChatId: data2?.telegram_chat_id ?? prev.apiKeys.telegramChatId,
                 slack: data2?.slack_webhook_url ?? prev.apiKeys.slack,
                 teams: data2?.teams_webhook_url ?? prev.apiKeys.teams,
               },
