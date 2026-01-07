@@ -136,6 +136,9 @@ services:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - ELASTICSEARCH_INDEX=intelx_data
       - CORS_ORIGIN=https://localhost:8443
+      - CORS_ALLOW_ANY_ON_PROXY_PORT=true
+      - CORS_PROXY_PORT=8443
+      - CORS_ORIGIN_REGEX=
       - PORT=3001
     depends_on:
       backend:

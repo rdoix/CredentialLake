@@ -30,17 +30,64 @@ async function bootstrap() {
   // Enable global validation
   app.useGlobalPipes(globalValidationPipe);
 
-  // Enable CORS for frontend(s); comma-separated list in CORS_ORIGIN
+  // Enable CORS for frontend(s)
+  // Flexible policy:
+  // - Exact origins via CORS_ORIGIN (comma-separated)
+  // - Regex patterns via CORS_ORIGIN_REGEX (comma-separated, e.g. "^https://\\d+\\.\\d+\\.\\d+\\.\\d+:8443$")
+  // - Allow any HTTPS origin on proxy port via CORS_ALLOW_ANY_ON_PROXY_PORT=true and CORS_PROXY_PORT (default 8443)
   const allowedOrigins =
     process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()).filter(Boolean) ??
     ['http://localhost:3000', 'http://localhost:3001'];
-  
+  const regexPatterns =
+    process.env.CORS_ORIGIN_REGEX?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+  const allowedRegex: RegExp[] = regexPatterns
+    .map((p) => {
+      try {
+        return new RegExp(p);
+      } catch {
+        return null;
+      }
+    })
+    .filter((r): r is RegExp => !!r);
+
+  const corsProxyPort = Number(process.env.CORS_PROXY_PORT ?? 8443);
+  const allowAnyOnProxyPort = (process.env.CORS_ALLOW_ANY_ON_PROXY_PORT ?? 'true') === 'true';
+
+  const isAllowedOrigin = (origin?: string): boolean => {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return true;
+
+    // Exact match
+    if (allowedOrigins.includes(origin)) return true;
+
+    // Regex match
+    for (const re of allowedRegex) {
+      if (re.test(origin)) return true;
+    }
+
+    // Dynamic allowance: any HTTPS origin on configured proxy port (e.g., 8443)
+    // This supports deployments where the proxy external IP/host varies per server.
+    try {
+      const u = new URL(origin);
+      const isHttps = u.protocol === 'https:';
+      const port = u.port || (u.protocol === 'https:' ? '443' : '');
+      if (
+        allowAnyOnProxyPort &&
+        isHttps &&
+        (port === String(corsProxyPort) || (corsProxyPort === 443 && port === '443'))
+      ) {
+        return true;
+      }
+    } catch {
+      // Ignore URL parsing errors
+    }
+
+    return false;
+  };
+
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, Postman)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
+      if (isAllowedOrigin(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
