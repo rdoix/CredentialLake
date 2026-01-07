@@ -2,6 +2,9 @@
 import sys
 import os
 from typing import List, Dict, Optional, Callable
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Import from backend directory
 from backend.intelx_client import search_leaks, process_search_results, process_multiple_domains
@@ -19,16 +22,45 @@ except ImportError:
 
 class IntelXService:
     """Service for IntelX API operations"""
-    
+
+    def _sanitize_api_key(self, key: str) -> str:
+        """
+        Normalize API key to avoid invalid HTTP header values.
+        - Strip leading/trailing whitespace, tabs, newlines
+        - Remove control characters (< ' ' and DEL)
+        - Remove surrounding quotes
+        """
+        if not isinstance(key, str):
+            return ""
+        s = key.strip()  # trims spaces, \t, \r, \n
+        # Remove control characters
+        s = "".join(ch for ch in s if ch >= " " and ch != "\x7f")
+        # Remove common accidental wrapping quotes
+        s = s.strip("'\"")
+        return s
+
     def __init__(self, api_key: str):
-        """Initialize IntelX client"""
-        self.api_key = api_key
+        """Initialize IntelX client (with API key sanitization)"""
+        original_key = api_key or ""
+        key = self._sanitize_api_key(original_key)
+
+        if not key:
+            raise ValueError("IntelX API key is empty or invalid after sanitization")
+
+        if key != original_key:
+            try:
+                logger.warning(f"IntelXService: sanitized API key; original_len={len(original_key)} sanitized_len={len(key)}")
+            except Exception:
+                pass
+
+        self.api_key = key
+
         if _IntelXClass is not None:
             # Use the 'intelx' package (preferred)
-            self.ix = _IntelXClass(api_key)
+            self.ix = _IntelXClass(key)
         elif _IntelXApiClass is not None:
             # Fallback to legacy 'intelxapi' package
-            self.ix = _IntelXApiClass(api_key)
+            self.ix = _IntelXApiClass(key)
         else:
             raise ImportError("No IntelX client library found. Install 'intelx' or 'intelxapi'.")
     
