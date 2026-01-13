@@ -57,12 +57,14 @@ export class JobsController {
     @Query('skip') skip: string = '0',
     @Query('limit') limit: string = '50',
     @Query('status') status?: string,
+    @Query('grouped') grouped?: string,
     @Headers('authorization') authorization?: string,
   ): Promise<JobResponse[]> {
     const url = new URL(`${this.backendBaseUrl}/api/jobs/`);
     url.searchParams.set('skip', skip ?? '0');
     url.searchParams.set('limit', limit ?? '50');
     if (status) url.searchParams.set('status', status);
+    if (grouped) url.searchParams.set('grouped', grouped);
 
     const res = await fetch(url.toString(), {
       headers: {

@@ -35,7 +35,7 @@ export default function Collector() {
     // Fetch real jobs
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/jobs/`, {
+      const response = await fetch(`${API_BASE_URL}/jobs/?grouped=true`, {
         method: 'GET',
         headers: {
           Accept: 'application/json',
@@ -114,6 +114,9 @@ export default function Collector() {
           target: job.query || job.name,
           // IntelX time range code (e.g., 'D1','D7','D30'); undefined/empty => All Time
           timeFilter: job.time_filter || undefined,
+          batchId: job.batch_id,
+          batchSize: job.batch_size,
+          batchQueries: job.batch_queries,
           status,
           progress,
           credentials: {

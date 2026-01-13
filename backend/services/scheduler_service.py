@@ -167,6 +167,9 @@ class SchedulerService:
             max_results = 100
             display_limit = 10
 
+            # Generate a single batch_id for all jobs in this execution
+            batch_id = uuid.uuid4()
+
             # Track job IDs for batch alert aggregation
             job_ids = []
 
@@ -179,6 +182,7 @@ class SchedulerService:
                     name=sj.name,
                     query=kw,
                     time_filter=sj.time_filter or "D1",
+                    batch_id=batch_id,  # Assign batch_id to group related jobs
                     status="queued",
                 )
                 db.add(job_row)

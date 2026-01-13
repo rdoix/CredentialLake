@@ -24,15 +24,160 @@ def list_jobs(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     status: Optional[str] = Query(None, description="Filter by status: queued|running|completed|failed|collecting|parsing|upserting|cancelling|cancelled"),
+    grouped: bool = Query(False, description="Group jobs by batch_id"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """List all scan jobs with optional filtering"""
+    """
+    List all scan jobs with optional filtering and grouping.
+    When grouped=true, jobs with the same batch_id are combined into a single entry.
+    """
     query = db.query(ScanJob)
     if status:
         query = query.filter(ScanJob.status == status)
     jobs = query.order_by(ScanJob.created_at.desc()).offset(skip).limit(limit).all()
-    return [job.to_dict() for job in jobs]
+    
+    if not grouped:
+        return [job.to_dict() for job in jobs]
+    
+    # Group jobs by batch_id
+    from collections import defaultdict
+    batches = defaultdict(list)
+    standalone_jobs = []
+    
+    for job in jobs:
+        if job.batch_id:
+            batches[str(job.batch_id)].append(job)
+        else:
+            standalone_jobs.append(job)
+    
+    # Create grouped responses
+    result = []
+    
+    # Add grouped jobs (combine stats from all jobs in batch)
+    for batch_id, batch_jobs in batches.items():
+        # Use the first job as the base
+        base_job = batch_jobs[0]
+        grouped_dict = base_job.to_dict()
+        
+        # For grouped jobs, use the job name (scheduled job name) as the query/target
+        # instead of individual keyword
+        if base_job.name:
+            grouped_dict['query'] = base_job.name
+        
+        # Aggregate statistics from all jobs in the batch
+        grouped_dict['batch_size'] = len(batch_jobs)
+        grouped_dict['batch_queries'] = [j.query for j in batch_jobs]
+        grouped_dict['total_raw'] = sum(j.total_raw or 0 for j in batch_jobs)
+        grouped_dict['total_parsed'] = sum(j.total_parsed or 0 for j in batch_jobs)
+        grouped_dict['total_new'] = sum(j.total_new or 0 for j in batch_jobs)
+        grouped_dict['total_duplicates'] = sum(j.total_duplicates or 0 for j in batch_jobs)
+        
+        # Determine overall status (prioritize: running > failed > completed)
+        statuses = [j.status for j in batch_jobs]
+        if any(s in ['running', 'collecting', 'parsing', 'upserting'] for s in statuses):
+            grouped_dict['status'] = 'running'
+        elif any(s == 'failed' for s in statuses):
+            grouped_dict['status'] = 'failed'
+        elif all(s == 'completed' for s in statuses):
+            grouped_dict['status'] = 'completed'
+        elif any(s == 'queued' for s in statuses):
+            grouped_dict['status'] = 'queued'
+        else:
+            grouped_dict['status'] = base_job.status
+        
+        # Use earliest started_at and latest completed_at
+        started_times = [j.started_at for j in batch_jobs if j.started_at]
+        completed_times = [j.completed_at for j in batch_jobs if j.completed_at]
+        if started_times:
+            grouped_dict['started_at'] = min(started_times).isoformat() + 'Z'
+        if completed_times:
+            grouped_dict['completed_at'] = max(completed_times).isoformat() + 'Z'
+        
+        result.append(grouped_dict)
+    
+    # Fallback grouping for legacy jobs without batch_id:
+    # Group intelx_single jobs by (name, time bucket ~60 minutes, time_filter)
+    # so older runs created before batch_id was added are combined into one entry.
+    from collections import defaultdict
+    
+    legacy_groups = defaultdict(list)
+    leftovers = []
+    
+    def _time_bucket(dt: datetime | None):
+        """
+        Round a datetime down to a 60-minute bucket (top of the hour). If none provided, return None.
+        """
+        if not dt:
+            return None
+        try:
+            return dt.replace(minute=0, second=0, microsecond=0)
+        except Exception:
+            return dt
+    
+    for job in standalone_jobs:
+        # Only group intelx_single jobs that have a 'name' (i.e., created by a ScheduledJob)
+        # Manual single scans typically lack a schedule name and should remain standalone.
+        if job.job_type == 'intelx_single' and job.name:
+            # Prefer created_at; fallback to started_at; then completed_at
+            base_ts = job.created_at or job.started_at or job.completed_at
+            bucket = _time_bucket(base_ts)
+            key = (
+                job.name,
+                bucket.isoformat() if bucket else 'no-time',
+                job.time_filter or '',
+            )
+            legacy_groups[key].append(job)
+        else:
+            leftovers.append(job)
+    
+    # Convert grouped legacy entries into aggregated responses
+    for (_name, _bucket_iso, _tf), batch_jobs in legacy_groups.items():
+        if len(batch_jobs) <= 1:
+            # Singletons remain as individual entries
+            leftovers.extend(batch_jobs)
+            continue
+        
+        base_job = batch_jobs[0]
+        grouped_dict = base_job.to_dict()
+        
+        # For legacy grouped jobs, use the job name (scheduled job name) as the query/target
+        if base_job.name:
+            grouped_dict['query'] = base_job.name
+        
+        # Aggregated fields matching batch_id grouping contract
+        grouped_dict['batch_size'] = len(batch_jobs)
+        grouped_dict['batch_queries'] = [j.query for j in batch_jobs]
+        grouped_dict['total_raw'] = sum(j.total_raw or 0 for j in batch_jobs)
+        grouped_dict['total_parsed'] = sum(j.total_parsed or 0 for j in batch_jobs)
+        grouped_dict['total_new'] = sum(j.total_new or 0 for j in batch_jobs)
+        grouped_dict['total_duplicates'] = sum(j.total_duplicates or 0 for j in batch_jobs)
+        
+        statuses = [j.status for j in batch_jobs]
+        if any(s in ['running', 'collecting', 'parsing', 'upserting'] for s in statuses):
+            grouped_dict['status'] = 'running'
+        elif any(s == 'failed' for s in statuses):
+            grouped_dict['status'] = 'failed'
+        elif all(s == 'completed' for s in statuses):
+            grouped_dict['status'] = 'completed'
+        elif any(s == 'queued' for s in statuses):
+            grouped_dict['status'] = 'queued'
+        else:
+            grouped_dict['status'] = base_job.status
+        
+        started_times = [j.started_at for j in batch_jobs if j.started_at]
+        completed_times = [j.completed_at for j in batch_jobs if j.completed_at]
+        if started_times:
+            grouped_dict['started_at'] = min(started_times).isoformat() + 'Z'
+        if completed_times:
+            grouped_dict['completed_at'] = max(completed_times).isoformat() + 'Z'
+        
+        result.append(grouped_dict)
+    
+    # Add any remaining standalone jobs (manual or non-groupable)
+    result.extend([job.to_dict() for job in leftovers])
+    
+    return result
 
 
 @router.get("/{job_id}", response_model=JobResponse)

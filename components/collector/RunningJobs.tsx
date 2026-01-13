@@ -224,9 +224,8 @@ export default function RunningJobs({ jobs, onJobsUpdated }: RunningJobsProps) {
     }
   };
 
-  // Open details modal and fetch job details
+  // Open details modal - use job data from list (which includes batch info)
   const openJobDetails = async (jobId: string) => {
-    // Logs to validate assumption that backend returns totals
     console.log('[RunningJobs] openJobDetails()', { jobId, ts: new Date().toISOString() });
     setIsDetailsOpen(true);
     setSelectedJobId(jobId);
@@ -241,54 +240,104 @@ export default function RunningJobs({ jobs, onJobsUpdated }: RunningJobsProps) {
     setIsLoadingCreds(true);
 
     try {
-      // Fetch job details
-      const res = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
-        headers: {
-          Accept: 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!res.ok) {
-        throw new Error(`Failed to fetch job ${jobId}: ${res.status} ${res.statusText}`);
+      // Find the job in the current list (which has batch info from grouped API)
+      const jobFromList = jobs.find(j => j.id === jobId);
+      
+      if (jobFromList) {
+        // Use the job data from the list which includes batch information
+        const data = {
+          id: jobFromList.id,
+          job_type: jobFromList.type === 'single' ? 'intelx_single' :
+                    jobFromList.type === 'bulk' ? 'intelx_bulk' :
+                    jobFromList.type === 'file' ? 'file_parse' : 'scheduled',
+          name: jobFromList.target,
+          query: jobFromList.target,
+          time_filter: jobFromList.timeFilter,
+          batch_id: jobFromList.batchId,
+          batch_size: jobFromList.batchSize,
+          batch_queries: jobFromList.batchQueries,
+          status: jobFromList.status,
+          total_raw: jobFromList.credentials.total,
+          total_parsed: jobFromList.credentials.parsed,
+          total_new: jobFromList.credentials.new,
+          total_duplicates: jobFromList.credentials.total - jobFromList.credentials.parsed - jobFromList.credentials.new,
+          started_at: jobFromList.startedAt,
+          completed_at: jobFromList.completedAt,
+          created_at: jobFromList.startedAt,
+          duration_seconds: jobFromList.completedAt && jobFromList.startedAt
+            ? differenceInSeconds(parseISO(jobFromList.completedAt), parseISO(jobFromList.startedAt))
+            : null,
+          error_message: jobFromList.error,
+        };
+        
+        console.log('[RunningJobs] using job from list with batch info', {
+          id: data.id,
+          batch_size: data.batch_size,
+          batch_queries: data.batch_queries,
+        });
+        
+        setJobDetails(data);
+      } else {
+        throw new Error('Job not found in current list');
       }
-      const data = await res.json();
-      console.log('[RunningJobs] fetched job details', {
-        id: data?.id,
-        status: data?.status,
-        time_filter: data?.time_filter,
-        total_raw: data?.total_raw,
-        total_parsed: data?.total_parsed,
-        total_new: data?.total_new,
-        total_duplicates: data?.total_duplicates,
-      });
-      setJobDetails(data);
     } catch (err: any) {
-      console.error('[RunningJobs] details fetch error', err);
+      console.error('[RunningJobs] details error', err);
       setDetailsError(err?.message || 'Failed to load job details');
     } finally {
       setIsLoadingDetails(false);
     }
 
     try {
-      // Fetch associated credentials (max 20) via FastAPI [results.list_job_credentials()](backend/routes/results.py:73)
-      const credsRes = await fetch(`${API_BASE_URL}/results/job/${jobId}?page=1&page_size=20`, {
-        headers: {
-          Accept: 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (!credsRes.ok) {
-        throw new Error(`Failed to fetch job credentials ${jobId}: ${credsRes.status} ${credsRes.statusText}`);
+      // For batched jobs, fetch credentials from all jobs in the batch
+      const jobFromList = jobs.find(j => j.id === jobId);
+      
+      if (jobFromList?.batchId && jobFromList?.batchSize && jobFromList.batchSize > 1) {
+        // This is a batched job - fetch credentials using batch_id endpoint
+        console.log('[RunningJobs] batched job detected, fetching batch credentials', {
+          batch_id: jobFromList.batchId,
+          batch_size: jobFromList.batchSize,
+        });
+        
+        const credsRes = await fetch(`${API_BASE_URL}/results/batch/${jobFromList.batchId}?page=1&page_size=20`, {
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!credsRes.ok) {
+          throw new Error(`Failed to fetch batch credentials ${jobFromList.batchId}: ${credsRes.status} ${credsRes.statusText}`);
+        }
+        const payload = await credsRes.json();
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        console.log('[RunningJobs] fetched batch credentials', {
+          count: items.length,
+          total: payload?.total,
+          batch_id: jobFromList.batchId,
+        });
+        setJobCreds(items);
+        setJobCredsTotal(Number(payload?.total ?? items.length));
+        setCredsError(null);
+      } else {
+        // Single job - fetch credentials normally
+        const credsRes = await fetch(`${API_BASE_URL}/results/job/${jobId}?page=1&page_size=20`, {
+          headers: {
+            Accept: 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        if (!credsRes.ok) {
+          throw new Error(`Failed to fetch job credentials ${jobId}: ${credsRes.status} ${credsRes.statusText}`);
+        }
+        const payload = await credsRes.json();
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        console.log('[RunningJobs] fetched job credentials', {
+          count: items.length,
+          total: payload?.total,
+          sample_is_new: items.length ? items[0]?.is_new : undefined,
+        });
+        setJobCreds(items);
+        setJobCredsTotal(Number(payload?.total ?? items.length));
       }
-      const payload = await credsRes.json();
-      const items = Array.isArray(payload?.items) ? payload.items : [];
-      console.log('[RunningJobs] fetched job credentials', {
-        count: items.length,
-        total: payload?.total,
-        sample_is_new: items.length ? items[0]?.is_new : undefined,
-      });
-      setJobCreds(items);
-      setJobCredsTotal(Number(payload?.total ?? items.length));
     } catch (err: any) {
       console.error('[RunningJobs] job credentials fetch error', err);
       setCredsError(err?.message || 'Failed to load credentials');
@@ -491,9 +540,21 @@ export default function RunningJobs({ jobs, onJobsUpdated }: RunningJobsProps) {
                         </span>
                       </div>
                       <span className="text-muted">•</span>
-                      <h4 className="text-sm font-semibold text-foreground truncate">
-                        {job.target}
-                      </h4>
+                      {job.batchSize && job.batchSize > 1 ? (
+                        <>
+                          <h4 className="text-sm font-semibold text-foreground truncate">
+                            {job.target} (Batch Scan)
+                          </h4>
+                          <span className="text-muted">•</span>
+                          <span className="px-2 py-0.5 bg-secondary/10 text-secondary rounded text-xs font-medium">
+                            {job.batchSize} keywords
+                          </span>
+                        </>
+                      ) : (
+                        <h4 className="text-sm font-semibold text-foreground truncate">
+                          {job.target}
+                        </h4>
+                      )}
                       <span className="text-muted">•</span>
                       <span className="text-xs text-muted">
                         Time Range: {mapTimeFilterLabel(job.timeFilter)}
@@ -508,6 +569,20 @@ export default function RunningJobs({ jobs, onJobsUpdated }: RunningJobsProps) {
                         </span>
                       )}
                     </p>
+                    {job.batchQueries && job.batchQueries.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {job.batchQueries.slice(0, 5).map((query: string, idx: number) => (
+                          <span key={idx} className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs">
+                            {query}
+                          </span>
+                        ))}
+                        {job.batchQueries.length > 5 && (
+                          <span className="px-2 py-0.5 bg-muted/10 text-muted rounded text-xs">
+                            +{job.batchQueries.length - 5} more
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -703,26 +778,49 @@ export default function RunningJobs({ jobs, onJobsUpdated }: RunningJobsProps) {
 
               {!isLoadingDetails && !detailsError && jobDetails && (
                 <div className="space-y-4">
-                  {/* Top summary */}
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted">Job ID</p>
-                      <p className="text-sm font-mono text-foreground break-all">{jobDetails.id}</p>
-                    </div>
-                    <div className="text-right space-y-1">
-                      <p className="text-sm text-muted">Type</p>
-                      <p className="text-sm font-medium text-foreground">
-                        {jobDetails.job_type === 'intelx_single' ? 'Single'
-                          : jobDetails.job_type === 'intelx_bulk' ? 'Bulk'
-                          : jobDetails.job_type === 'file_parse' ? 'File'
-                          : jobDetails.job_type === 'scheduled' ? 'Scheduled'
-                          : (jobDetails.job_type || '—')}
-                      </p>
-                      <p className="text-sm text-muted mt-2">Time Range</p>
-                      <p className="text-sm text-foreground">{mapTimeFilterLabel(jobDetails.time_filter)}</p>
+                {/* Top summary */}
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted">Job ID</p>
+                    <p className="text-sm font-mono text-foreground break-all">{jobDetails.id}</p>
+                    {jobDetails.batch_size && jobDetails.batch_size > 1 && (
+                      <>
+                        <p className="text-sm text-muted mt-2">Batch Info</p>
+                        <p className="text-sm font-medium text-secondary">
+                          Grouped batch of {jobDetails.batch_size} scans
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <div className="text-right space-y-1">
+                    <p className="text-sm text-muted">Type</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {jobDetails.job_type === 'intelx_single' ? 'Single'
+                        : jobDetails.job_type === 'intelx_bulk' ? 'Bulk'
+                        : jobDetails.job_type === 'file_parse' ? 'File'
+                        : jobDetails.job_type === 'scheduled' ? 'Scheduled'
+                        : (jobDetails.job_type || '—')}
+                    </p>
+                    <p className="text-sm text-muted mt-2">Time Range</p>
+                    <p className="text-sm text-foreground">{mapTimeFilterLabel(jobDetails.time_filter)}</p>
+                  </div>
+                </div>
+
+                {/* Batch keywords display */}
+                {jobDetails.batch_queries && jobDetails.batch_queries.length > 0 && (
+                  <div className="p-3 bg-background rounded-lg border border-border">
+                    <p className="text-xs text-muted mb-2">Scanned Keywords ({jobDetails.batch_queries.length})</p>
+                    <div className="flex flex-wrap gap-2">
+                      {jobDetails.batch_queries.map((query: string, idx: number) => (
+                        <span key={idx} className="px-2 py-1 bg-primary/10 text-primary rounded text-xs font-medium">
+                          {query}
+                        </span>
+                      ))}
                     </div>
                   </div>
+                )}
 
+                {!jobDetails.batch_queries || jobDetails.batch_queries.length <= 1 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-3 bg-background rounded-lg border border-border">
                       <p className="text-xs text-muted mb-1">Query / Name</p>
@@ -748,6 +846,24 @@ export default function RunningJobs({ jobs, onJobsUpdated }: RunningJobsProps) {
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="p-3 bg-background rounded-lg border border-border">
+                    <p className="text-xs text-muted mb-1">Status</p>
+                    <div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        jobDetails.status === 'running'
+                          ? 'bg-primary/10 text-primary'
+                          : jobDetails.status === 'completed'
+                          ? 'bg-accent/10 text-accent'
+                          : jobDetails.status === 'failed'
+                          ? 'bg-danger/10 text-danger'
+                          : 'bg-warning/10 text-warning'
+                      }`}>
+                        {String(jobDetails.status).charAt(0).toUpperCase() + String(jobDetails.status).slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                   {/* Timestamps */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -880,6 +996,21 @@ export default function RunningJobs({ jobs, onJobsUpdated }: RunningJobsProps) {
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                    )}
+                    
+                    {/* Info message for viewing more credentials */}
+                    {jobCreds.length > 0 && jobCredsTotal > 20 && (
+                      <div className="mt-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+                        <p className="text-sm text-primary">
+                          <strong>Showing 20 of {jobCredsTotal.toLocaleString()} credentials.</strong>
+                          {jobDetails.batch_size && jobDetails.batch_size > 1 && (
+                            <span> This batch includes credentials from {jobDetails.batch_size} keywords.</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-primary/80 mt-1">
+                          For complete results, visit the <strong>Credential Lake</strong> page and filter by domain or use the search feature.
+                        </p>
                       </div>
                     )}
                   </div>

@@ -141,3 +141,81 @@ def list_job_credentials(
         "page_size": page_size,
         "total_pages": total_pages
     }
+
+
+@router.get("/batch/{batch_id}", response_model=PaginatedResponse)
+def list_batch_credentials(
+    batch_id: str,
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=500),
+    admin_only: bool = Query(False, description="Only admin credentials"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List credentials associated with all jobs in a batch.
+    Aggregates credentials from all jobs sharing the same batch_id.
+    """
+    # Find all jobs with this batch_id
+    jobs = db.query(ScanJob).filter(ScanJob.batch_id == batch_id).all()
+    if not jobs:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    
+    job_ids = [str(job.id) for job in jobs]
+    
+    # Collect all credential IDs and is_new flags from all jobs in the batch
+    assoc_rows = db.query(JobCredential.credential_id, JobCredential.is_new).filter(
+        JobCredential.job_id.in_(job_ids)
+    ).all()
+    
+    id_to_new: dict[int, bool] = {}
+    ids: list[int] = []
+    for cid, is_new in assoc_rows:
+        try:
+            cid_int = int(cid)
+        except Exception:
+            continue
+        
+        # If credential appears in multiple jobs, mark as new if ANY job found it new
+        if cid_int not in id_to_new:
+            ids.append(cid_int)
+            id_to_new[cid_int] = bool(is_new)
+        else:
+            # Keep as new if either occurrence was new
+            id_to_new[cid_int] = id_to_new[cid_int] or bool(is_new)
+    
+    # If no credentials, return empty
+    if len(ids) == 0:
+        return {
+            "items": [],
+            "total": 0,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": 0
+        }
+    
+    # Query credentials with optional admin filter
+    query = db.query(Credential).filter(Credential.id.in_(ids))
+    if admin_only:
+        query = query.filter(Credential.is_admin == True)
+    query = query.order_by(Credential.last_seen.desc())
+    
+    total, items, total_pages = paginate(query, page, page_size)
+    
+    # Build response with is_new flags
+    payload_items = []
+    for cred in items:
+        d = cred.to_dict()
+        try:
+            d["is_new"] = bool(id_to_new.get(int(cred.id), False))
+        except Exception:
+            d["is_new"] = bool(id_to_new.get(cred.id, False))
+        payload_items.append(d)
+    
+    return {
+        "items": payload_items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages
+    }

@@ -79,13 +79,44 @@ export default function SingleScan() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      // Safely parse JSON; if not JSON, keep raw text for diagnostics
+      const rawText = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = { raw: rawText };
+      }
 
       if (response.ok) {
         toast.success('Scan Started Successfully!', `Job ID: ${data.job_id}\n\nCheck the "Running Jobs" tab to monitor progress.`);
         setKeyword('');
       } else {
-        toast.error('Scan Failed', data.detail || 'Failed to start scan');
+        // Prefer detail/message/error fields; fallback to status
+        let errMsg =
+          data?.detail ||
+          data?.message ||
+          data?.error ||
+          data?.raw ||
+          `HTTP ${response.status}: ${response.statusText}`;
+
+        // Status-specific guidance
+        if (response.status === 401) {
+          errMsg = 'Unauthorized: Please login again.';
+        } else if (response.status === 403) {
+          errMsg = data?.message || 'Forbidden: Requires Collector or Administrator role.';
+        } else if (response.status === 503) {
+          errMsg = data?.detail || 'Job queue unavailable (Redis). Please ensure Redis is running and reachable.';
+        }
+
+        console.error('Scan failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errMsg,
+          data,
+        });
+
+        toast.error('Scan Failed', errMsg);
       }
     } catch (error) {
       console.error('Scan error:', error);

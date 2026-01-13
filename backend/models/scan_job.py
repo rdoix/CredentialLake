@@ -21,6 +21,8 @@ class ScanJob(Base):
     query = Column(Text, nullable=False)
     # IntelX time range code (e.g., 'D1','D7','D30','W1','M3','Y1'); empty/None means All Time
     time_filter = Column(String(10), nullable=True)
+    # Batch ID for grouping related jobs from same scheduled execution
+    batch_id = Column(UUID(as_uuid=True), nullable=True)
     # Status lifecycle: queued -> collecting -> parsing -> upserting -> completed|failed; cancelling|cancelled supported
     status = Column(String(50), default='queued', nullable=False)  # queued, running, completed, failed, collecting, parsing, upserting, cancelling, cancelled, paused
     # Queue job id for RQ
@@ -72,6 +74,7 @@ class ScanJob(Base):
             'name': self.name,
             'query': self.query,
             'time_filter': self.time_filter,
+            'batch_id': str(self.batch_id) if self.batch_id else None,
             'status': self.status,
             'rq_job_id': self.rq_job_id,
             'cancel_requested': self.cancel_requested,

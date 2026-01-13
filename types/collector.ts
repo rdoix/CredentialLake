@@ -4,6 +4,9 @@ export interface ScanJob {
   target: string;
   // IntelX time range code (e.g., 'D1','D7','D30','W1','M3','Y1'); empty/undefined = All Time
   timeFilter?: string;
+  batchId?: string;
+  batchSize?: number;
+  batchQueries?: string[];
   status: 'pending' | 'running' | 'completed' | 'failed' | 'queued' | 'collecting' | 'parsing' | 'upserting' | 'cancelling' | 'cancelled' | 'paused';
   progress: number;
   credentials: {

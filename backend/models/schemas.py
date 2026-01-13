@@ -86,6 +86,10 @@ class JobResponse(BaseModel):
     name: Optional[str]
     query: str
     time_filter: Optional[str] = None
+    # Grouping fields (optional) for batch display in UI
+    batch_id: Optional[str] = None
+    batch_size: Optional[int] = None
+    batch_queries: Optional[List[str]] = None
     status: str
     rq_job_id: Optional[str] = None
     cancel_requested: Optional[bool] = None

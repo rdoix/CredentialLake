@@ -142,4 +142,56 @@ export class ResultsController {
     const data = (await res.json()) as PaginatedResponse<CredentialResponse>;
     return data;
   }
+
+  /**
+   * Proxy to FastAPI [results.list_batch_credentials()](backend/routes/results.py:146)
+   * Fetches credentials from all jobs in a batch.
+   * Supports pagination and admin_only filter:
+   * - page: number
+   * - page_size: number
+   * - admin_only: boolean
+   */
+  @Get('batch/:batchId')
+  async listBatchCredentials(
+    @CurrentUser() user: { sub: string; role: UserRole },
+    @Param('batchId') batchId: string,
+    @Query('page') page: string = '1',
+    @Query('page_size') page_size: string = '50',
+    @Query('admin_only') admin_only?: string, // boolean as string
+    @Headers('authorization') authorization?: string,
+  ): Promise<PaginatedResponse<CredentialResponse>> {
+    const url = new URL(`${this.backendBaseUrl}/api/results/batch/${batchId}`);
+    url.searchParams.set('page', page ?? '1');
+    url.searchParams.set('page_size', page_size ?? '50');
+    if (admin_only !== undefined) url.searchParams.set('admin_only', admin_only);
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Accept: 'application/json',
+        ...(authorization ? { Authorization: authorization } : {}),
+      },
+    });
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.error(
+        JSON.stringify(
+          {
+            ts: new Date().toISOString(),
+            endpoint: 'GET /api/results/batch/:batchId -> FastAPI',
+            forwarded_url: url.toString(),
+            has_auth_header: Boolean(authorization),
+            backend_status: res.status,
+            backend_status_text: res.statusText,
+          },
+          null,
+          2,
+        ),
+      );
+      throw new Error(
+        `Backend /api/results/batch/${batchId} error: ${res.status} ${res.statusText}`,
+      );
+    }
+    const data = (await res.json()) as PaginatedResponse<CredentialResponse>;
+    return data;
+  }
 }
