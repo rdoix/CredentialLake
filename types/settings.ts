@@ -57,6 +57,12 @@ export interface SystemSettings {
   rqWorkers: number;
   parallelDomainWorkers: number;
   domainScanDelay: number;
+
+  // IntelX file inspection limits
+  // - defaultDisplayLimit: default number of files to inspect from IntelX results
+  // - maxDisplayLimit: maximum number of files users can inspect
+  defaultDisplayLimit: number;
+  maxDisplayLimit: number;
 }
 
 export interface Settings {

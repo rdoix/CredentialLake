@@ -78,6 +78,8 @@ export default function Settings() {
             rqWorkers: typeof data?.rq_workers === 'number' ? data.rq_workers : (prev.system.rqWorkers ?? 5),
             parallelDomainWorkers: typeof data?.parallel_domain_workers === 'number' ? data.parallel_domain_workers : (prev.system.parallelDomainWorkers ?? 20),
             domainScanDelay: typeof data?.domain_scan_delay === 'number' ? data.domain_scan_delay : (prev.system.domainScanDelay ?? 0.1),
+            defaultDisplayLimit: typeof data?.default_display_limit === 'number' ? data.default_display_limit : (prev.system.defaultDisplayLimit ?? 50),
+            maxDisplayLimit: typeof data?.max_display_limit === 'number' ? data.max_display_limit : (prev.system.maxDisplayLimit ?? 500),
           },
         }));
       } catch (err) {
@@ -122,6 +124,14 @@ export default function Settings() {
       }
       if (typeof system.domainScanDelay === 'number' && system.domainScanDelay >= 0) {
         payload.domain_scan_delay = system.domainScanDelay;
+      }
+      
+      // IntelX display limits
+      if (typeof system.defaultDisplayLimit === 'number' && system.defaultDisplayLimit > 0) {
+        payload.default_display_limit = system.defaultDisplayLimit;
+      }
+      if (typeof system.maxDisplayLimit === 'number' && system.maxDisplayLimit > 0) {
+        payload.max_display_limit = system.maxDisplayLimit;
       }
 
       if (Object.keys(payload).length > 0) {

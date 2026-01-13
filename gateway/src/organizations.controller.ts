@@ -1,6 +1,6 @@
-import { Controller, Get, Param, Res, Headers } from '@nestjs/common';
+import { Controller, Get, Param, Res, Headers, Delete } from '@nestjs/common';
 import type { Response } from 'express';
-import { CurrentUser } from './auth.decorators';
+import { CurrentUser, Roles } from './auth.decorators';
 import type { UserRole } from './auth.guard';
 
 /**
@@ -11,6 +11,7 @@ import type { UserRole } from './auth.guard';
  * This controller exposes:
  *  - GET /api/organizations
  *  - GET /api/organizations/:domain
+ *  - DELETE /api/organizations/:domain
  *
  * Backend base URL is provided via BACKEND_BASE_URL (e.g., http://backend:8000).
  *
@@ -93,6 +94,46 @@ export class OrganizationsController {
       res.status(r.status).type('application/json').send(body);
     } catch (err: any) {
       res.status(502).json({ message: 'Gateway error fetching organization detail', error: String(err) });
+    }
+  }
+
+  // Proxy DELETE to FastAPI [organizations.delete_organization()](backend/routes/organizations.py:49)
+  @Roles('administrator', 'collector')
+  @Delete('/:domain')
+  async deleteOrganization(
+    @CurrentUser() user: { sub: string; role: UserRole },
+    @Param('domain') domain: string,
+    @Res() res: Response,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const url = `${this.backendBaseUrl}/api/organizations/${encodeURIComponent(domain)}`;
+    try {
+      const r = await fetch(url, {
+        method: 'DELETE',
+        headers: { Accept: 'application/json', ...(authorization ? { Authorization: authorization } : {}) },
+      });
+      const body = await r.text();
+      if (!r.ok) {
+        // eslint-disable-next-line no-console
+        console.error(
+          JSON.stringify(
+            {
+              ts: new Date().toISOString(),
+              endpoint: 'DELETE /api/organizations/:domain -> FastAPI',
+              forwarded_url: url,
+              has_auth_header: Boolean(authorization),
+              backend_status: r.status,
+              backend_status_text: r.statusText,
+              backend_error_text: body,
+            },
+            null,
+            2,
+          ),
+        );
+      }
+      res.status(r.status).type('application/json').send(body);
+    } catch (err: any) {
+      res.status(502).json({ message: 'Gateway error deleting organization', error: String(err) });
     }
   }
 }

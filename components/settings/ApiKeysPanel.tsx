@@ -31,6 +31,13 @@ export default function ApiKeysPanel({ apiKeys, onChange }: ApiKeysPanelProps) {
     slack: false,
     teams: false,
   });
+  // IntelX activation diagnostics exposed by backend settings.to_dict():
+  // - intelx_key_active: boolean
+  // - intelx_key_source: 'db' | 'env' | null
+  const [intelxStatus, setIntelxStatus] = useState<{ active: boolean; source: 'db' | 'env' | null }>({
+    active: false,
+    source: null,
+  });
   const [testing, setTesting] = useState<string | null>(null);
   const toast = useToast();
 
@@ -58,7 +65,13 @@ export default function ApiKeysPanel({ apiKeys, onChange }: ApiKeysPanelProps) {
           slack: !!data.slack_webhook_url,
           teams: !!data.teams_webhook_url,
         });
- 
+
+        // IntelX activation diagnostics from backend (env vs db)
+        setIntelxStatus({
+          active: !!data.intelx_key_active,
+          source: (data.intelx_key_source || null) as 'db' | 'env' | null,
+        });
+
         // If keys exist on server, show the masked value from backend in the input field
         const updatedKeys: ApiKeys = {
           intelx: data.intelx_api_key || apiKeys.intelx || '',
@@ -275,6 +288,20 @@ export default function ApiKeysPanel({ apiKeys, onChange }: ApiKeysPanelProps) {
                     API key configured
                     {isMaskedValue(apiKeys[field.key]) ? ' (masked from server)' : ''}
                   </span>
+                </div>
+              )}
+              {/* IntelX activation/source status (ENV vs DB) */}
+              {field.key === 'intelx' && (
+                <div className="mt-1 text-xs text-muted">
+                  {intelxStatus.active ? (
+                    <span>
+                      IntelX key active (source: {intelxStatus.source === 'db' ? 'Settings (DB)' : 'Environment'})
+                    </span>
+                  ) : (
+                    <span>
+                      No IntelX key detected. Workers will use DB or environment if provided.
+                    </span>
+                  )}
                 </div>
               )}
               {'testable' in field && field.testable && (

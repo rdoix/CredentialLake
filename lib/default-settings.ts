@@ -56,6 +56,9 @@ export const getDefaultSettings = (): Settings => {
       rqWorkers: 5,
       parallelDomainWorkers: 20,
       domainScanDelay: 0.1,
+      // IntelX file inspection limits
+      defaultDisplayLimit: 50,
+      maxDisplayLimit: 500,
     },
   };
 };

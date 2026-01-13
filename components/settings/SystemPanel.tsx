@@ -122,6 +122,54 @@ export default function SystemPanel({ settings, onChange }: SystemPanelProps) {
           <p className="text-xs text-muted mt-1">Small delay between domain requests to prevent overload.</p>
         </div>
 
+        {/* IntelX Display Limits */}
+        <div className="border-t border-border pt-6">
+          <h4 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+            <Database className="w-4 h-4" />
+            IntelX File Inspection Limits
+          </h4>
+          
+          {/* Default Display Limit */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Database className="w-4 h-4 text-muted" />
+              <label className="block text-sm font-medium text-foreground">Default Display Limit</label>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={500}
+              step={1}
+              value={settings.defaultDisplayLimit ?? 50}
+              onChange={(e) => updateSetting('defaultDisplayLimit', Number(e.target.value))}
+              className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-xs text-muted mt-1">
+              Default number of IntelX files to inspect per scan (1-500). Users can override this per scan.
+            </p>
+          </div>
+
+          {/* Max Display Limit */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Database className="w-4 h-4 text-muted" />
+              <label className="block text-sm font-medium text-foreground">Maximum Display Limit</label>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={500}
+              step={1}
+              value={settings.maxDisplayLimit ?? 500}
+              onChange={(e) => updateSetting('maxDisplayLimit', Number(e.target.value))}
+              className="w-full px-4 py-2 bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-xs text-muted mt-1">
+              Maximum number of IntelX files users can inspect per scan (1-500). This is the hard limit.
+            </p>
+          </div>
+        </div>
+
         {/* Scan Timeout */}
         <div>
           <div className="flex items-center gap-2 mb-3">

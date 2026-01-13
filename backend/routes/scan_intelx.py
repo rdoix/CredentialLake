@@ -206,7 +206,7 @@ async def create_multi_domain_scan_from_file(
     name: str = Form(None),
     time_filter: str = Form(None),
     max_results: int = Form(100),
-    display_limit: int = Form(10),
+    display_limit: int = Form(50),
     send_alert: bool = Form(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_collector_or_admin)

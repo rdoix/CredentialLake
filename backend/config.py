@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     PARALLEL_DOMAIN_WORKERS: int = 20  # Number of concurrent domain scans
     DOMAIN_SCAN_DELAY: float = 0.1  # Delay between domain scans (seconds)
     
+    # IntelX file inspection limits
+    DEFAULT_DISPLAY_LIMIT: int = 50  # Default number of files to inspect from IntelX
+    MAX_DISPLAY_LIMIT: int = 500  # Maximum number of files to inspect from IntelX
+    
     # Frontend URL for alert links
     FRONTEND_URL: str = "http://localhost:3000"
     

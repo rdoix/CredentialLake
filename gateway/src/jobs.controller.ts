@@ -296,6 +296,46 @@ export class JobsController {
     return payload;
   }
 
+  // Proxy to FastAPI clear-all endpoint [jobs.clear_all_jobs()](backend/routes/jobs.py:392)
+  @Roles('administrator', 'collector')
+  @Delete()
+  async clearAllJobs(
+    @CurrentUser() user: { sub: string; role: UserRole },
+    @Headers('authorization') authorization?: string,
+  ): Promise<any> {
+    const url = `${this.backendBaseUrl}/api/jobs/`;
+    const res = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        ...(authorization ? { Authorization: authorization } : {}),
+      },
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.error(
+        JSON.stringify(
+          {
+            ts: new Date().toISOString(),
+            endpoint: 'DELETE /api/jobs -> FastAPI (clear all)',
+            forwarded_url: url,
+            has_auth_header: Boolean(authorization),
+            backend_status: res.status,
+            backend_status_text: res.statusText,
+            backend_error_payload: payload,
+          },
+          null,
+          2,
+        ),
+      );
+      throw new Error(
+        `Backend clear-all error: ${res.status} ${res.statusText} - ${JSON.stringify(payload)}`,
+      );
+    }
+    return payload;
+  }
+
   /**
    * SSE stream for job status. Clients subscribe to /jobs/:jobId/stream
    * This implementation polls FastAPI [jobs.get_job()](backend/routes/jobs.py:28) every 1s

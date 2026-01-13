@@ -41,7 +41,7 @@ class IntelXScanRequest(BaseModel):
     name: Optional[str] = Field(None, description="Optional human-readable scan name")
     time_filter: Optional[TimeFilter] = None
     max_results: int = Field(100, ge=1, le=1000)
-    display_limit: int = Field(10, ge=1, le=100)
+    display_limit: int = Field(50, ge=1, le=500, description="Number of files to inspect from IntelX results")
     send_alert: bool = False
 
 
@@ -51,7 +51,7 @@ class IntelXMultiScanRequest(BaseModel):
     name: Optional[str] = Field(None, description="Optional human-readable scan name")
     time_filter: Optional[TimeFilter] = None
     max_results: int = Field(100, ge=1, le=1000)
-    display_limit: int = Field(10, ge=1, le=100)
+    display_limit: int = Field(50, ge=1, le=500, description="Number of files to inspect from IntelX results per domain")
     send_alert: bool = False
 
 

@@ -206,10 +206,10 @@ export default function SingleScan() {
                 onChange={(e) => setDisplayLimit(e.target.value)}
                 placeholder="50"
                 min="1"
-                max="1000"
+                max="500"
                 className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
-              <p className="mt-1 text-xs text-muted">Number of results to display (1-1000)</p>
+              <p className="mt-1 text-xs text-muted">Number of IntelX files to inspect (1-500, default: 50)</p>
             </div>
 
             <div className="flex items-center gap-3">

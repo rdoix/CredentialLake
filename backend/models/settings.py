@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Float
 from sqlalchemy.sql import func
 from datetime import timezone
 from backend.database import Base
+from backend.config import settings
 
 
 class AppSettings(Base):
@@ -30,9 +31,13 @@ class AppSettings(Base):
     # - rq_workers: number of RQ worker processes to launch in the worker container
     # - parallel_domain_workers: per-job ThreadPool workers for multi-domain scans
     # - domain_scan_delay: delay between domain requests (seconds)
+    # - default_display_limit: default number of IntelX files to inspect
+    # - max_display_limit: maximum number of IntelX files to inspect
     rq_workers = Column(Integer, nullable=True)
     parallel_domain_workers = Column(Integer, nullable=True)
     domain_scan_delay = Column(Float, nullable=True)
+    default_display_limit = Column(Integer, nullable=True)
+    max_display_limit = Column(Integer, nullable=True)
 
     # CVE sync tracking (timezone-aware)
     last_cve_sync_at = Column(DateTime, nullable=True)
@@ -56,6 +61,12 @@ class AppSettings(Base):
             # Convert to UTC and emit Z suffix
             return dt.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
 
+        # Determine IntelX key activation state and source (DB vs ENV)
+        intelx_env = getattr(settings, "INTELX_KEY", "") or ""
+        intelx_db = self.intelx_api_key or ""
+        intelx_key_active = bool(intelx_db) or bool(intelx_env)
+        intelx_key_source = "db" if intelx_db else ("env" if intelx_env else None)
+
         return {
             "notify_provider": self.notify_provider,
             "intelx_api_key": mask_key(self.intelx_api_key) if self.intelx_api_key else None,
@@ -68,6 +79,11 @@ class AppSettings(Base):
             "rq_workers": self.rq_workers,
             "parallel_domain_workers": self.parallel_domain_workers,
             "domain_scan_delay": self.domain_scan_delay,
+            "default_display_limit": self.default_display_limit,
+            "max_display_limit": self.max_display_limit,
+            # IntelX key state for UI diagnostics
+            "intelx_key_active": intelx_key_active,
+            "intelx_key_source": intelx_key_source,
             # CVE sync tracking
             "last_cve_sync_at": format_last_sync(self.last_cve_sync_at),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
