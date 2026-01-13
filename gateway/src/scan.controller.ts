@@ -232,7 +232,8 @@ export class ScanController {
     const tfRaw = body?.time_filter ?? '';
     const time_filter = normalizeTimeFilter(tfRaw) ?? '';
     const max_results = String(body?.max_results ?? '100');
-    const display_limit = String(body?.display_limit ?? '10');
+    // Default to 50 to match FastAPI Form defaults and system settings
+    const display_limit = String(body?.display_limit ?? '50');
     // Accept both "true"/"false" and boolean
     const send_alert =
       typeof body?.send_alert === 'boolean'

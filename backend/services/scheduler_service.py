@@ -36,6 +36,7 @@ from backend.config import settings
 from backend.database import SessionLocal
 from backend.models.scheduled_job import ScheduledJob
 from backend.models.scan_job import ScanJob
+from backend.models.settings import AppSettings
 from backend.workers.scan_worker import process_intelx_scan
 from backend.services.batch_alert_service import BatchAlertService
 from backend.workers.batch_alert_task import send_batch_alert_after_completion_task
@@ -165,7 +166,26 @@ class SchedulerService:
 
             send_alert = bool(sj.notify_telegram or sj.notify_slack or sj.notify_teams)
             max_results = 100
-            display_limit = 10
+            # Determine display_limit from AppSettings, bounded by max_display_limit
+            try:
+                app_settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+            except Exception:
+                app_settings = None
+
+            if app_settings:
+                ddl = app_settings.default_display_limit or 50
+                mdl = app_settings.max_display_limit or 500
+                try:
+                    ddl = int(ddl)
+                except Exception:
+                    ddl = 50
+                try:
+                    mdl = int(mdl)
+                except Exception:
+                    mdl = 500
+                display_limit = max(1, min(ddl, mdl))
+            else:
+                display_limit = 50
 
             # Generate a single batch_id for all jobs in this execution
             batch_id = uuid.uuid4()

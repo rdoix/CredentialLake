@@ -77,7 +77,7 @@
       </div>
       <div class="row">
         <label for="single_limit">Display Limit</label>
-        <div><input id="single_limit" type="number" value="10" min="1" max="100" /></div>
+        <div><input id="single_limit" type="number" value="50" min="1" max="500" /></div>
       </div>
       <div class="row">
         <label for="single_alert">Send Alert</label>
@@ -121,7 +121,7 @@
       </div>
       <div class="row">
         <label for="multi_limit">Display Limit</label>
-        <div><input id="multi_limit" type="number" value="10" min="1" max="100" /></div>
+        <div><input id="multi_limit" type="number" value="50" min="1" max="500" /></div>
       </div>
       <div class="row">
         <label for="multi_alert">Send Alert</label>
@@ -137,6 +137,32 @@
 
   <script>
     const showMsg = (el, text, ok=true) => { el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); el.style.display = 'block'; };
+
+    // Load system display limit defaults from /api/settings and apply to inputs
+    async function loadSettings() {
+      try {
+        const resp = await fetch('/api/settings', { headers: { 'Accept': 'application/json' } });
+        if (!resp.ok) return;
+        const s = await resp.json();
+        const ddl = Number(s?.default_display_limit) || 50;
+        const mdl = Number(s?.max_display_limit) || 500;
+
+        const singleLimitEl = document.getElementById('single_limit');
+        const multiLimitEl = document.getElementById('multi_limit');
+
+        if (singleLimitEl) {
+          singleLimitEl.value = String(ddl);
+          singleLimitEl.max = String(mdl);
+        }
+        if (multiLimitEl) {
+          multiLimitEl.value = String(ddl);
+          multiLimitEl.max = String(mdl);
+        }
+      } catch (_) {
+        // ignore settings load failures; keep hard-coded defaults
+      }
+    }
+    document.addEventListener('DOMContentLoaded', loadSettings);
 
     async function startSingle() {
       const query = document.getElementById('single_query').value.trim();

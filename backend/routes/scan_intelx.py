@@ -21,6 +21,7 @@ from backend.config import settings
 from backend.workers.scan_worker import process_intelx_scan, process_multi_domain_scan
 from backend.routes.auth import require_collector_or_admin
 from backend.models.user import User
+from backend.models.settings import AppSettings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/scan/intelx", tags=["intelx-scan"])
@@ -81,6 +82,26 @@ def create_intelx_scan(
         db.add(job)
         db.commit()
         
+        # Determine effective display_limit using AppSettings defaults and max bounds
+        try:
+            app_settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+        except Exception:
+            app_settings = None
+
+        ddl = (app_settings.default_display_limit if app_settings and app_settings.default_display_limit else 50)
+        mdl = (app_settings.max_display_limit if app_settings and app_settings.max_display_limit else 500)
+        try:
+            ddl = int(ddl)
+        except Exception:
+            ddl = 50
+        try:
+            mdl = int(mdl)
+        except Exception:
+            mdl = 500
+
+        req_limit = request.display_limit if request.display_limit is not None else ddl
+        effective_limit = max(1, min(int(req_limit), int(mdl)))
+
         # Enqueue background task
         enq_job = job_queue.enqueue(
             process_intelx_scan,
@@ -88,7 +109,7 @@ def create_intelx_scan(
             request.query,
             request.max_results,
             request.time_filter.value if request.time_filter else None,
-            request.display_limit,
+            effective_limit,
             request.send_alert,
             job_timeout=settings.JOB_TIMEOUT
         )
@@ -160,6 +181,26 @@ def create_multi_domain_scan(
         db.add(job)
         db.commit()
         
+        # Determine effective display_limit using AppSettings defaults and max bounds
+        try:
+            app_settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+        except Exception:
+            app_settings = None
+
+        ddl = (app_settings.default_display_limit if app_settings and app_settings.default_display_limit else 50)
+        mdl = (app_settings.max_display_limit if app_settings and app_settings.max_display_limit else 500)
+        try:
+            ddl = int(ddl)
+        except Exception:
+            ddl = 50
+        try:
+            mdl = int(mdl)
+        except Exception:
+            mdl = 500
+
+        req_limit = request.display_limit if request.display_limit is not None else ddl
+        effective_limit = max(1, min(int(req_limit), int(mdl)))
+
         # Enqueue background task
         enq_job = job_queue.enqueue(
             process_multi_domain_scan,
@@ -167,7 +208,7 @@ def create_multi_domain_scan(
             request.domains,
             request.max_results,
             request.time_filter.value if request.time_filter else None,
-            request.display_limit,
+            effective_limit,
             request.send_alert,
             job_timeout=settings.JOB_TIMEOUT
         )
@@ -257,6 +298,26 @@ async def create_multi_domain_scan_from_file(
         db.add(job)
         db.commit()
         
+        # Determine effective display_limit using AppSettings defaults and max bounds
+        try:
+            app_settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+        except Exception:
+            app_settings = None
+
+        ddl = (app_settings.default_display_limit if app_settings and app_settings.default_display_limit else 50)
+        mdl = (app_settings.max_display_limit if app_settings and app_settings.max_display_limit else 500)
+        try:
+            ddl = int(ddl)
+        except Exception:
+            ddl = 50
+        try:
+            mdl = int(mdl)
+        except Exception:
+            mdl = 500
+
+        req_limit = display_limit if display_limit is not None else ddl
+        effective_limit = max(1, min(int(req_limit), int(mdl)))
+
         # Enqueue background task
         enq_job = job_queue.enqueue(
             process_multi_domain_scan,
@@ -264,7 +325,7 @@ async def create_multi_domain_scan_from_file(
             domains,
             max_results,
             time_filter,
-            display_limit,
+            effective_limit,
             send_alert,
             job_timeout=settings.JOB_TIMEOUT
         )
